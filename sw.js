@@ -1,13 +1,13 @@
-const CACHE = "budget-pwa-v372";
+const CACHE = "budget-pwa-v410";
 const CORE = [
-  "/",
-  "/index.html",
-  "/manifest.webmanifest",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/icon-maskable-512.png",
-  "/screenshot-mobile.png",
-  "/screenshot-wide.png"
+  "./",
+  "./index.html",
+  "./manifest.webmanifest",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./icon-maskable-512.png",
+  "./screenshot-mobile.png",
+  "./screenshot-wide.png"
 ];
 
 self.addEventListener("install", event => {
@@ -35,6 +35,6 @@ self.addEventListener("fetch", event => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request).then(r => r || caches.match("/index.html")))
+      .catch(() => caches.match(event.request).then(r => r || caches.match("./index.html")))
   );
 });
