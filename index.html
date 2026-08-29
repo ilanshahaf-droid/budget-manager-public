@@ -1556,8 +1556,8 @@ body{
 
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#5b4b8a">
-<meta name="app-version" content="V4.1 Stable">
-<meta name="build-stage" content="stable">
+<meta name="app-version" content="V4.2 Alpha 4">
+<meta name="build-stage" content="mobile-accordion-fix-alpha">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1621,21 +1621,21 @@ body{
 
 
 
-<!-- V4.1 Stable: conservative CSS deduplication; removed 23 exact duplicate declarations. -->
-<!-- V4.1 Stable: removed 184 safely shadowed CSS declarations and 37 empty rules from legacy visual layers. -->
-<!-- V4.1 Stable: consolidated five legacy visual CSS layers into one ordered base layer; no CSS declarations removed in this step. -->
+<!-- V4.2 Alpha 4: conservative CSS deduplication; removed 23 exact duplicate declarations. -->
+<!-- V4.2 Alpha 4: removed 184 safely shadowed CSS declarations and 37 empty rules from legacy visual layers. -->
+<!-- V4.2 Alpha 4: consolidated five legacy visual CSS layers into one ordered base layer; no CSS declarations removed in this step. -->
 <!--
-V4.1 Stable — stability candidate.
+V4.2 Alpha 4 — stability candidate.
 No functional, forecast, sync, or visual behavior was intentionally changed from Alpha 5.
 This build exists to validate the cleaned architecture before RC1.
 -->
 <!--
-V4.1 Stable — targeted history-category edit fix.
+V4.2 Alpha 4 — targeted history-category edit fix.
 The history tab now uses the same URL-encoded category edit handler as the Month tab.
 No forecast, sync, data, or CSS logic changed.
 -->
 <!--
-V4.1 Stable — Release Hardening
+V4.2 Alpha 4 — Release Hardening
 No functional behavior intentionally changed from Alpha 6.1.
 Static audit at build time:
 - duplicate HTML ids: 0
@@ -1645,27 +1645,27 @@ Static audit at build time:
 - JavaScript syntax check: PASS
 -->
 <!--
-V4.1 Stable — MutationObserver Consolidation
+V4.2 Alpha 4 — MutationObserver Consolidation
 Three independent DOM observers were replaced by one shared observer.
 Existing refresh behavior was preserved; forecast, data and Supabase persistence logic were not intentionally changed.
 -->
 <!--
-V4.1 Stable — Deep Cleanup
+V4.2 Alpha 4 — Deep Cleanup
 - migrated the largest rc23 layer to semantic names
 - consolidated 18 static style blocks into one ordered stylesheet
 - retained the single shared MutationObserver from Alpha 8
 - intentionally retained remaining !important rules for component-by-component cleanup
 -->
 <!--
-V4.1 Stable — swipe direction adjustment only.
+V4.2 Alpha 4 — swipe direction adjustment only.
 No data, forecast, sync, CSS architecture, or category logic changed.
 -->
 <!--
-V4.1 Stable — Release Candidate
+V4.2 Alpha 4 — Release Candidate
 Promoted from V4.1 Alpha 9.1 after successful functional testing.
 No application behavior intentionally changed in this build.
 -->
-<!-- V4.1 Stable: removed Smart Insights / Smart Alerts from Month screen. No other behavior intentionally changed. -->
+<!-- V4.2 Alpha 4: removed Smart Insights / Smart Alerts from Month screen. No other behavior intentionally changed. -->
 
 <style id="v41-modern-mobile-ui">
 :root{
@@ -1803,25 +1803,51 @@ header{display:none!important}
 </style>
 
 <!--
-V4.1 Stable — Modern mobile dashboard
+V4.2 Alpha 4 — Modern mobile dashboard
 Month screen rebuilt to match the approved visual mockup:
 8 clean KPI cards, fixed 4-tab bottom navigation, and dedicated Forecast tab.
 Underlying calculations, data model, Supabase sync, import, history and settings are preserved.
 -->
-<!-- V4.1 Stable: restored Income/Expense drill-down from the new Month cards. -->
+<!-- V4.2 Alpha 4: restored Income/Expense drill-down from the new Month cards. -->
 <!--
-V4.1 Stable — Expected Expenses drill-down
+V4.2 Alpha 4 — Expected Expenses drill-down
 The Expected Expenses KPI card now opens the existing detailed expected-expenses list.
 No calculation, forecast, sync, income/expense breakdown, history, or settings logic changed.
 -->
 <!--
-V4.1 Stable
+V4.2 Alpha 4
 Promoted from V4.1 RC3.2 after successful real-world testing.
 No application behavior intentionally changed in this build.
 -->
+<!--
+V4.2 Alpha 4 — dedicated Kibbutz CSV import.
+Kibbutz imports append to state.manual/source=קיבוץ and never replace Spendee rows.
+School reimbursements are represented by importing the CSV net-cost column.
+Duplicate Kibbutz rows are skipped safely.
+-->
+<!--
+V4.2 Alpha 4 — reversible Spendee import.
+Before each Spendee CSV import the full prior Spendee dataset is snapshotted.
+The new Undo button restores that snapshot, including the previous lastImport metadata.
+Note: imports performed in older app versions cannot be reconstructed retroactively because no pre-import snapshot was stored.
+-->
+<!--
+V4.2 Alpha 4 — Kibbutz legacy de-duplication.
+When a month contains the new four-category Kibbutz split imported as source=קיבוץ,
+legacy Spendee transactions whose category is exactly "הוצאות קיבוץ" remain stored
+but are excluded from all calculations and category displays for that month.
+This prevents double-counting without deleting historical source data.
+-->
+<!--
+V4.2 Alpha 4 — mobile accordion persistence fix.
+Removed the legacy mobile resize behavior that forcibly closed accordions.
+Chrome mobile changes viewport height while scrolling as its address bar hides/shows;
+that resize event was closing the Expected Expenses panel after the user opened it.
+User-opened accordion state is now preserved while scrolling.
+-->
 </head>
 <body>
-<header><div class="wrap"><h1>מנהל התקציב שלי</h1><div class="sub">V4.1 Stable · תחזית סוף חודש · תחזית קיבוץ אוטומטית · סנכרון אוטומטי</div></div></header>
+<header><div class="wrap"><h1>מנהל התקציב שלי</h1><div class="sub">V4.2 Alpha 4 · תחזית סוף חודש · תחזית קיבוץ אוטומטית · סנכרון אוטומטי</div></div></header>
 <div class="wrap">
 <div class="navtabs">
 <button id="budgetTab" class="active" onclick="showPage('budget')">החודש</button>
@@ -2144,7 +2170,7 @@ No application behavior intentionally changed in this build.
 
 
 <div id="settingsPage" class="page">
- <div class="card"><div class="row between"><div><b>גרסת האפליקציה</b><div class="muted tiny" style="margin-top:4px">הגרסה המותקנת במכשיר זה.</div></div><b style="color:var(--primary)">V4.1 Stable</b></div></div>
+ <div class="card"><div class="row between"><div><b>גרסת האפליקציה</b><div class="muted tiny" style="margin-top:4px">הגרסה המותקנת במכשיר זה.</div></div><b style="color:var(--primary)">V4.2 Alpha 4</b></div></div>
  <div class="card cloud-card rc29-cloud-card">
   <div class="rc29-cloud-head">
    <div>
@@ -2196,7 +2222,23 @@ No application behavior intentionally changed in this build.
  </div>
 
  <div class="card"><b>ייבוא מ־Spendee</b><div class="muted tiny" style="margin:6px 0 10px">יש לבחור קובץ CSV שיוצא מ־Spendee. קובץ Excel ‏(.xlsx) אינו נתמך ישירות.</div>
- <label class="filebtn">ייבוא CSV מ־Spendee<input id="csvFile" type="file" accept=".csv,text/csv"></label><div id="importStatus" class="muted tiny" style="margin-top:8px">טרם יובא קובץ.</div></div>
+ <div class="row" style="gap:8px;flex-wrap:wrap">
+   <label class="filebtn">ייבוא CSV מ־Spendee<input id="csvFile" type="file" accept=".csv,text/csv"></label>
+   <button id="undoSpendeeImportBtn" class="secondary" type="button" onclick="undoLastSpendeeImport()" disabled>↩ ביטול ייבוא Spendee אחרון</button>
+ </div>
+ <div id="importStatus" class="muted tiny" style="margin-top:8px">טרם יובא קובץ.</div>
+ <div id="undoSpendeeStatus" class="muted tiny" style="margin-top:6px"></div></div>
+ <div class="card" id="kibbutzImportCard">
+   <b>ייבוא הוצאות קיבוץ</b>
+   <div class="muted tiny" style="margin:6px 0 10px">
+     מוסיף את נתוני חשבון הקיבוץ לתנועות הקיימות ואינו מוחק או מחליף נתוני Spendee.
+     בקובץ עם החזרי בתי ספר המערכת משתמשת ב״עלות נטו״.
+   </div>
+   <label class="filebtn">ייבוא CSV הוצאות קיבוץ
+     <input id="kibbutzCsvFile" type="file" accept=".csv,text/csv">
+   </label>
+   <div id="kibbutzImportStatus" class="muted tiny" style="margin-top:8px">טרם יובא קובץ קיבוץ.</div>
+ </div>
  <div class="card"><b>מסגרות תקציב</b><div class="muted tiny" style="margin:6px 0 10px">יעדי הכנסה, חיסכון ומסגרות לפי קטגוריה.</div><button class="secondary" onclick="editSettings()">עריכת מסגרות</button></div>
  <div class="card"><div class="row between"><div><b>מרווח ביטחון</b><div class="muted tiny" style="margin:6px 0 0">סכום שאתה בוחר לשמור בצד בנוסף לחיסכון ולהוצאות הצפויות. הוא מופחת מ״כמה באמת נשאר לי״ אך אינו נחשב כהוצאה.</div></div><button class="secondary" onclick="editSafetyBuffer()">הגדר מרווח</button></div><div id="safetyBufferStatus" class="tiny" style="margin-top:8px"></div></div>
  <div class="card"><div class="row between"><div><b>הוצאות צפויות / מחויבויות</b><div class="muted tiny" style="margin-top:4px">הוצאות שעדיין לא הופיעו ב-Spendee אך צריך לשמור עבורן כסף. כשהחיוב מגיע אפשר לסמן ששולם.</div></div><button class="secondary" onclick="addExpectedExpense()">+ הוסף הוצאה צפויה</button></div><div id="expectedList" style="margin-top:10px"></div></div>
@@ -2566,6 +2608,126 @@ function parseCSV(text){
  if(cell||row.length){row.push(cell);rows.push(row)}
  return rows
 }
+
+function mapKibbutzImportCategory(c){
+ c=norm(c);
+ const map={
+   "הוצאות דירה":"קיבוץ – הוצאות דירה",
+   "קיבוץ - הוצאות דירה":"קיבוץ – הוצאות דירה",
+   "קיבוץ – הוצאות דירה":"קיבוץ – הוצאות דירה",
+   "מחיה בקיבוץ":"קיבוץ – מחיה",
+   "קיבוץ - מחיה":"קיבוץ – מחיה",
+   "קיבוץ – מחיה":"קיבוץ – מחיה",
+   "פנאי/שונות בקיבוץ":"קיבוץ – פנאי ותרבות",
+   "פנאי ושונות בקיבוץ":"קיבוץ – פנאי ותרבות",
+   "קיבוץ - פנאי ותרבות":"קיבוץ – פנאי ותרבות",
+   "קיבוץ – פנאי ותרבות":"קיבוץ – פנאי ותרבות",
+   "בתי ספר":"קיבוץ – חינוך",
+   "חינוך":"קיבוץ – חינוך",
+   "קיבוץ - חינוך":"קיבוץ – חינוך",
+   "קיבוץ – חינוך":"קיבוץ – חינוך"
+ };
+ return map[c]||c;
+}
+
+function kibbutzImportKey(x){
+ return [
+   (x.date||"").slice(0,10),
+   norm(x.category),
+   Math.abs(Number(x.amount||0)).toFixed(2),
+   norm(x.note),
+   "קיבוץ"
+ ].join("|");
+}
+
+function ingestKibbutzCSV(text){
+ const rows=parseCSV(text);
+ if(rows.length<2) throw Error("קובץ ריק");
+
+ const h=rows[0].map(x=>x.trim().replace(/^\uFEFF/,""));
+ const ix=n=>h.indexOf(n);
+ const firstIndex=names=>{
+   for(const n of names){const i=ix(n);if(i>=0)return i}
+   return -1;
+ };
+
+ const iDate=firstIndex(["תאריך","Date"]);
+ const iCat=firstIndex(["קטגוריה","Category"]);
+ const iItem=firstIndex(["סעיף","תיאור","Note"]);
+ const iGross=firstIndex(["הוצאה_ברוטו_₪","הוצאה ברוטו","Gross"]);
+ const iRefund=firstIndex(["החזר_צפוי_₪","החזר צפוי","Refund"]);
+ const iNet=firstIndex(["עלות_נטו_₪","עלות נטו","Net"]);
+ const iNote=firstIndex(["הערה","Note extra"]);
+
+ if(iDate<0 || iCat<0 || iItem<0 || (iNet<0 && iGross<0)){
+   throw Error("זה לא נראה כמו קובץ הוצאות קיבוץ. נדרשות עמודות תאריך, קטגוריה, סעיף ועלות נטו/הוצאה ברוטו.");
+ }
+
+ state.manual=Array.isArray(state.manual)?state.manual:[];
+ const existing=new Set(
+   state.manual
+     .filter(x=>x.source==="קיבוץ")
+     .map(kibbutzImportKey)
+ );
+
+ let added=0, skipped=0, totalNet=0;
+ const imported=[];
+
+ rows.slice(1).forEach(r=>{
+   const rawDate=(r[iDate]||"").trim();
+   const rawCat=(r[iCat]||"").trim();
+   const item=(r[iItem]||"").trim();
+   if(!rawDate || !rawCat || !item) return;
+
+   const gross=iGross>=0 ? Number(String(r[iGross]||"0").replace(/,/g,"")) : 0;
+   const refund=iRefund>=0 ? Number(String(r[iRefund]||"0").replace(/,/g,"")) : 0;
+   const net=iNet>=0 ? Number(String(r[iNet]||"0").replace(/,/g,"")) : gross-refund;
+   if(!Number.isFinite(net) || net<=0) return;
+
+   const category=mapKibbutzImportCategory(rawCat);
+   const extra=iNote>=0 ? (r[iNote]||"").trim() : "";
+   const parts=[item];
+   if(gross && Math.abs(gross-net)>0.005) parts.push(`ברוטו ₪${gross.toFixed(2)}`);
+   if(refund) parts.push(`החזר ₪${refund.toFixed(2)}`);
+   if(extra) parts.push(extra);
+
+   const tx={
+     date:rawDate.includes("T")?rawDate:rawDate+"T12:00:00",
+     type:"Expense",
+     category,
+     amount:-Math.abs(net),
+     note:parts.join(" · "),
+     source:"קיבוץ"
+   };
+
+   const key=kibbutzImportKey(tx);
+   if(existing.has(key)){skipped++;return}
+   existing.add(key);
+   imported.push(tx);
+   totalNet+=net;
+ });
+
+ if(!imported.length && !skipped) throw Error("לא נמצאו שורות תקינות לייבוא.");
+
+ state.manual=state.manual.concat(imported);
+ state.lastKibbutzImport={
+   when:new Date().toISOString(),
+   count:imported.length,
+   skipped,
+   totalNet:Number(totalNet.toFixed(2))
+ };
+ save();
+ buildMonths();
+ render();
+
+ const status=$("kibbutzImportStatus");
+ if(status){
+   status.textContent=`ייבוא קיבוץ הושלם: ${imported.length} תנועות נוספו בסך ₪${totalNet.toFixed(2)}`
+     +(skipped?`, ${skipped} תנועות שכבר היו קיימות דולגו`:"")
+     +'. אם קיימת באותו חודש קטגוריית "הוצאות קיבוץ" ישנה מ־Spendee, היא נשמרת בגיבוי אך אינה נספרת פעמיים.';
+ }
+}
+
 function txKey(x){
  // Stable fingerprint for an individual Spendee transaction.
  // The note/wallet are included so two same-day purchases with the same amount/category are not collapsed accidentally.
@@ -2581,6 +2743,12 @@ function isMonthlySummaryImport(out){
 }
 function ingestCSV(text){
  const rows=parseCSV(text); if(rows.length<2)throw Error("קובץ ריק");
+ // Snapshot the complete Spendee dataset BEFORE every import, so the import is reversible.
+ state.undoLastSpendeeImport={
+   when:new Date().toISOString(),
+   spendee:JSON.parse(JSON.stringify(state.spendee||[])),
+   lastImport:state.lastImport?JSON.parse(JSON.stringify(state.lastImport)):null
+ };
  const h=rows[0].map(x=>x.trim()); const ix=n=>h.indexOf(n);
  const req=["Date","Type","Category name","Amount"]; if(req.some(x=>ix(x)<0))throw Error("זה לא נראה כמו CSV של Spendee");
  let out=[];
@@ -2623,8 +2791,68 @@ function ingestCSV(text){
  save();buildMonths();render();
  if($("importStatus")) $("importStatus").textContent=`ייבוא הושלם: ${out.length} תנועות נוספו, ${removed} רשומות ישנות הוחלפו${skipped?`, ${skipped} כפילויות דולגו`:""}.`;
 }
+
+function updateUndoSpendeeButton(){
+ const btn=$("undoSpendeeImportBtn");
+ if(!btn)return;
+ const canUndo=!!(state.undoLastSpendeeImport && Array.isArray(state.undoLastSpendeeImport.spendee));
+ btn.disabled=!canUndo;
+ btn.style.opacity=canUndo?"1":".55";
+ if($("undoSpendeeStatus")){
+   $("undoSpendeeStatus").textContent=canUndo
+     ? "ניתן לבטל את ייבוא Spendee האחרון ולהחזיר את הנתונים למצב שלפניו."
+     : "אין כרגע ייבוא Spendee שניתן לבטל.";
+ }
+}
+
+function undoLastSpendeeImport(){
+ const snap=state.undoLastSpendeeImport;
+ if(!snap || !Array.isArray(snap.spendee)){
+   alert("אין גיבוי של מצב Spendee מלפני הייבוא האחרון. הכפתור יוכל לבטל ייבואים שיבוצעו מעכשיו והלאה.");
+   return;
+ }
+ if(!confirm("לבטל את ייבוא Spendee האחרון ולהחזיר את כל נתוני Spendee למצב שלפניו?"))return;
+
+ const currentImport=state.lastImport?JSON.parse(JSON.stringify(state.lastImport)):null;
+ state.spendee=JSON.parse(JSON.stringify(snap.spendee));
+ state.lastImport=snap.lastImport?JSON.parse(JSON.stringify(snap.lastImport)):null;
+ state.undoLastSpendeeImport=null;
+ state.lastUndoSpendeeImport={
+   when:new Date().toISOString(),
+   undoneImport:currentImport
+ };
+
+ save();
+ buildMonths();
+ render();
+ updateUndoSpendeeButton();
+
+ if($("importStatus")){
+   $("importStatus").textContent="ייבוא Spendee האחרון בוטל. הנתונים הוחזרו למצב שלפני הייבוא.";
+ }
+}
+
 function txMonth(x){return x.date.slice(0,7)}
-function allTx(){return state.spendee.concat(state.manual)}
+
+function hasSplitKibbutzForMonth(monthKey){
+ return (state.manual||[]).some(x=>
+   x && x.source==="קיבוץ" &&
+   (x.type||"").toLowerCase()==="expense" &&
+   budgetMonth(x)===monthKey &&
+   KIBBUTZ_FORECAST_CATS.includes(mapCat(x.category))
+ );
+}
+
+function allTx(){
+ const manual=state.manual||[];
+ const spendee=(state.spendee||[]).filter(x=>{
+   if((x.type||"").toLowerCase()!=="expense")return true;
+   if(norm(x.category)!=="הוצאות קיבוץ")return true;
+   const m=budgetMonth(x);
+   return !hasSplitKibbutzForMonth(m);
+ });
+ return spendee.concat(manual);
+}
 function buildMonths(){
  const s=new Set(allTx().flatMap(x=>[txMonth(x),budgetMonth(x)])); let d=new Date(); for(let i=-4;i<=6;i++){let x=new Date(d.getFullYear(),d.getMonth()+i,1);s.add(x.toISOString().slice(0,7))}
  const old=$("month").value; $("month").innerHTML=[...s].sort().reverse().map(m=>`<option value="${m}">${new Intl.DateTimeFormat("he-IL",{month:"long",year:"numeric"}).format(new Date(m+"-01T12:00:00"))}</option>`).join("");
@@ -3883,6 +4111,7 @@ function render(){
  let legacy=tx.filter(x=>norm(x.category)=="הוצאות קיבוץ").reduce((a,x)=>a+expenseAmount(x),0);$("legacyBox").classList.toggle("hidden",!legacy);$("legacyAmount").textContent=legacy?`סה"כ בחודש: ${fmt(legacy)}`:"";
  $("tbody").innerHTML=tx.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>{const exp=(x.type||"").toLowerCase()==="expense",meta=exp?txMeta(x):{};let cls="—";if(exp){if(meta.split){const p=meta.split;cls=`מפוצלת: שוטף ${fmt(p.regular||0)}, תקופתי ${fmt(p.periodic||0)}, חריג ${fmt(p.exceptional||0)}`}else cls=classLabel(expenseClass(x));const sug=!meta.confirmed?suggestExpenseClass(x,tx):null;if(sug)cls+=` · 💡 מוצע: ${classLabel(sug.class)}`}const action=exp?`<button class="secondary tx-action" onclick="classifyTx('${encodeURIComponent(txKey(x))}')">סיווג</button>`:"";return `<tr><td>${x.date.slice(0,10)}</td><td>${budgetMonth(x)}</td><td>${exp?"הוצאה":"הכנסה"}</td><td>${x.category}</td><td>${x.note||""}</td><td>${fmt(Math.abs(x.amount))}</td><td>${cls}</td><td>${x.source}</td><td>${action}</td></tr>`}).join("")||'<tr><td colspan="9">אין תנועות בחודש זה</td></tr>';$("count").textContent=tx.length+" תנועות";
  if(state.lastImport && $("importStatus"))$("importStatus").textContent=`ייבוא אחרון: ${state.lastImport.count} תנועות, ${state.lastImport.lo} עד ${state.lastImport.hi}`;
+ updateUndoSpendeeButton();
  // RC43 final synchronization: one forecast engine, one end-of-month answer.
  renderRc41MonthEndForecast(m);
 }
@@ -4020,6 +4249,23 @@ function editSettings(){
 }
 function exportBackup(){let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="budget-v4-backup.json";a.click();URL.revokeObjectURL(a.href)}
 $("csvFile").onchange=e=>{let f=e.target.files[0];if(!f)return;if(!f.name.toLowerCase().endsWith(".csv")){alert("יש לייצא מ־Spendee קובץ CSV. קובץ Excel ‏(.xlsx) אינו נתמך בייבוא זה.");e.target.value="";return}let r=new FileReader();r.onload=()=>{try{ingestCSV(r.result)}catch(err){alert("לא ניתן לייבא את הקובץ: "+err.message)}};r.readAsText(f,"UTF-8")}
+setTimeout(updateUndoSpendeeButton,0);
+$("kibbutzCsvFile").onchange=e=>{
+ let f=e.target.files[0];
+ if(!f)return;
+ if(!f.name.toLowerCase().endsWith(".csv")){
+   alert("יש לבחור קובץ CSV של הוצאות קיבוץ.");
+   e.target.value="";
+   return;
+ }
+ let r=new FileReader();
+ r.onload=()=>{
+   try{ingestKibbutzCSV(r.result)}
+   catch(err){alert("לא ניתן לייבא את קובץ הקיבוץ: "+err.message)}
+   finally{e.target.value=""}
+ };
+ r.readAsText(f,"UTF-8");
+}
 $("backupFile").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{
  let restored=JSON.parse(r.result);
  if(restored.state && !restored.settings) restored=restored.state;
@@ -4804,17 +5050,12 @@ if ("serviceWorker" in navigator) {
       }
     });
 
-    /* On mobile, keep the two low-frequency sections collapsed */
-    if(window.matchMedia("(max-width:700px)").matches){
-      const acc=[...document.querySelectorAll(".app-accordion")];
-      if(acc[1]) acc[1].open=false;
-      if(acc[2]) acc[2].open=false;
-      /* categories stay open */
-      if(acc[0]) acc[0].open=true;
-    }
+    /* Mobile accordion state is no longer forced here.
+       On phones, scrolling can resize the browser viewport as the address bar
+       collapses/expands. The old resize handler interpreted that as a layout
+       refresh and closed user-opened accordions. User choice now wins. */
   }
   window.addEventListener("load",()=>setTimeout(run,400));
-  window.addEventListener("resize",()=>setTimeout(run,100));
 })();
 </script>
 
