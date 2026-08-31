@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>מנהל התקציב שלי – V4.2 Alpha 18</title>
+<title>מנהל התקציב שלי – V4.2 Alpha 19</title>
 <style id="app-styles">
 /* migrated style block 1 */
 
@@ -1556,8 +1556,8 @@ body{
 
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#5b4b8a">
-<meta name="app-version" content="V4.2 Alpha 18">
-<meta name="build-stage" content="fixed-health-precise-alpha">
+<meta name="app-version" content="V4.2 Alpha 19">
+<meta name="build-stage" content="fixed-health-real-category-alpha">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -2046,7 +2046,7 @@ Each insurance category now opens: included charges/policies grouped by descript
 </style>
 
 <!--
-V4.2 Alpha 18 — credit reconciliation layer.
+V4.2 Alpha 19 — credit reconciliation layer.
 - Credit audit moved directly below Kibbutz import.
 - XLSX importer reads all transaction sheets and skips summary/footer rows.
 - Manual Spendee search is available even when no automatic match was found.
@@ -2063,7 +2063,7 @@ V4.2 Alpha 18 — credit reconciliation layer.
 </style>
 
 <!--
-V4.2 Alpha 18 — learned credit-to-Spendee matching.
+V4.2 Alpha 19 — learned credit-to-Spendee matching.
 Manual selection of a Spendee transaction now creates a persistent merchant-to-Spendee matching rule.
 Next imports try learned rules before generic date/amount matching.
 Exact learned matches can resolve automatically; amount discrepancies always remain for explicit user approval.
@@ -2071,8 +2071,8 @@ Exact learned matches can resolve automatically; amount discrepancies always rem
 <style id="alpha12css">
 .credit-finder-hint{font-size:11px;color:#667085;margin:0 0 7px}.credit-finder-mode{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.credit-finder-mode button{padding:6px 9px!important;font-size:11px!important}.credit-candidate.related{border-color:#b9c8ee;background:#f8faff}.credit-related-badge{display:inline-block;margin-top:4px;padding:2px 6px;border-radius:999px;background:#eaf1ff;color:#315f9f;font-size:10px;font-weight:800}
 </style>
-<!-- V4.2 Alpha 18: fixes runtime candidate-search failure from Alpha 12 by using a locally available scoring function. Category/all/manual searches now always render candidate transactions or a visible error message. -->
-<!-- V4.2 Alpha 18: fixes the remaining txRelated runtime-scope bug in candidate search. -->
+<!-- V4.2 Alpha 19: fixes runtime candidate-search failure from Alpha 12 by using a locally available scoring function. Category/all/manual searches now always render candidate transactions or a visible error message. -->
+<!-- V4.2 Alpha 19: fixes the remaining txRelated runtime-scope bug in candidate search. -->
 
 <style id="alpha15-spendee-category-style">
 .spendee-category-map-list{display:grid;gap:7px}
@@ -2090,13 +2090,13 @@ Exact learned matches can resolve automatically; amount discrepancies always rem
 }
 </style>
 <!--
-V4.2 Alpha 18 — preserves original Spendee categories instead of destructively replacing them.
+V4.2 Alpha 19 — preserves original Spendee categories instead of destructively replacing them.
 Distinct categories such as Kופת חולים, child insurance, and car insurance remain distinct in the app.
 Budget mapping is retained separately. Manual credit search sees both original and mapped categories.
 Existing already-imported rows cannot recover their original category; one fresh Spendee import is required to populate source-category data.
 -->
 <!--
-V4.2 Alpha 18
+V4.2 Alpha 19
 - Removes the explanatory Spendee-vs-app category card from Settings.
 - Credit reconciliation search recognizes legacy category mappings from older imports.
 - "All transactions" is now truly unfiltered.
@@ -2110,18 +2110,24 @@ V4.2 Alpha 18
 }
 </style>
 <!--
-V4.2 Alpha 18 — fixed health-fund category.
+V4.2 Alpha 19 — fixed health-fund category.
 Creates a distinct virtual category "קופת חולים - קבוע".
 Recognizes recurring health charges from 2025-09-01 using known patterns:
 ~₪63 כללית מושלם and ~₪130 הראל סיעוד, while keeping raw Spendee data untouched.
 The category is available in credit reconciliation and feeds the Insurance > Health Fund view.
 -->
 <!--
-V4.2 Alpha 18 — precise fixed health-fund recognition based on Clalit quarterly statement:
+V4.2 Alpha 19 — precise fixed health-fund recognition based on Clalit quarterly statement:
 01/05/26 Clalit Mushlam 62.99; Harel nursing 128.61
 01/06/26 Clalit Mushlam 63.72; Harel nursing 130.09
 01/07/26 Clalit Mushlam 63.54; Harel nursing 129.72
 Detection from 2025-09-01: Clalit ~61.5–65.5, Harel nursing ~127–132, with merchant/name evidence preferred.
+-->
+<!--
+V4.2 Alpha 19 — "קופת חולים - קבוע" is now a real analytical category.
+Fixed recurring Clalit Mushlam / Harel nursing transactions are reclassified at the allTx() layer,
+so History, category breakdowns, Month and Insurance no longer swallow them into "תרופות ורופאים".
+Raw Spendee records remain unchanged for traceability and re-import safety.
 -->
 </head>
 <body>
@@ -7562,4 +7568,68 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
   setTimeout(()=>{try{render();renderInsurancePage()}catch(e){}},0);
 })();
 </script>
+
+<script id="alpha19-fixed-health-real-category">
+(function(){
+  const CAT="קופת חולים - קבוע";
+
+  // Reuse the precise Alpha 18 detector. This final layer turns the virtual
+  // classification into the category seen by every analysis screen.
+  function a19IsFixedHealth(tx){
+    return typeof window.isFixedHealthTransaction==="function" && window.isFixedHealthTransaction(tx);
+  }
+
+  // All analytical views (month, history, category breakdowns, insurance etc.)
+  // receive a cloned row with the fixed-health category, while the raw Spendee
+  // record stays untouched and preserves its original source category.
+  const prevAllTx=allTx;
+  allTx=function(){
+    return prevAllTx().map(tx=>{
+      if(!tx || (tx.type||"").toLowerCase()!=="expense" || !a19IsFixedHealth(tx))return tx;
+      return {
+        ...tx,
+        originalCategory:tx.originalCategory||tx.category,
+        spendeeCategory:tx.spendeeCategory||tx.originalCategory||tx.category,
+        category:CAT,
+        fixedHealth:true
+      };
+    });
+  };
+
+  // Keep mapCat stable and explicit for both dash variants and old Spendee label.
+  const prevMapCat=mapCat;
+  mapCat=function(c){
+    const n=norm(c);
+    if(n==="קופת חולים - קבוע" || n==="קופת חולים – קבוע")return CAT;
+    return prevMapCat(c);
+  };
+
+  // Fixed-health rows should always appear in the health bucket.
+  const prevInsuranceBucket=insuranceBucket;
+  insuranceBucket=function(x){
+    if(x?.fixedHealth || a19IsFixedHealth(x))return "health";
+    return prevInsuranceBucket(x);
+  };
+
+  // Make the category available as a normal budget/history category even if
+  // there is no explicit budget limit configured for it.
+  const prevAuditCategoryOptions=auditCategoryOptions;
+  auditCategoryOptions=function(selected){
+    const html=prevAuditCategoryOptions(selected);
+    if(html.includes(`value="${CAT}"`))return html;
+    return html.replace('<option value="">ללא סיווג</option>',
+      `<option value="">ללא סיווג</option><option value="${CAT}" ${selected===CAT?"selected":""}>${CAT}</option>`);
+  };
+
+  // Refresh after replacing the transaction/category layer.
+  setTimeout(()=>{
+    try{
+      buildMonths();
+      render();
+      renderInsurancePage();
+    }catch(e){console.error("Alpha19 fixed health refresh",e)}
+  },0);
+})();
+</script>
+
 </body></html>
