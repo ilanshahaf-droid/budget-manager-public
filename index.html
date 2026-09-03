@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>מנהל התקציב שלי – V4.2 Alpha 19</title>
+<title>מנהל התקציב שלי – V4.2 Stable</title>
 <style id="app-styles">
 /* migrated style block 1 */
 
@@ -1556,8 +1556,8 @@ body{
 
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#5b4b8a">
-<meta name="app-version" content="V4.2 Alpha 19">
-<meta name="build-stage" content="fixed-health-real-category-alpha">
+<meta name="app-version" content="V4.2 Stable">
+<meta name="build-stage" content="perf-boot-v1">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1898,7 +1898,22 @@ Adds a dedicated Insurance page with yearly totals, four insurance groups,
 monthly expense history, and combined insurance/health-fund total.
 No existing transaction, forecast, sync, Kibbutz import, or history logic changed.
 -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+window.__xlsxLoading=null;
+window.ensureXlsxLoaded=function(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(window.__xlsxLoading) return window.__xlsxLoading;
+  window.__xlsxLoading=new Promise(function(resolve,reject){
+    var s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.async=true;
+    s.onload=function(){resolve(window.XLSX)};
+    s.onerror=function(){window.__xlsxLoading=null;reject(new Error("טעינת ספריית XLSX נכשלה"))};
+    document.head.appendChild(s);
+  });
+  return window.__xlsxLoading;
+};
+</script>
 <style id="v42-insurance-credit-controls">
 .insurance-filter-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .insurance-period-switch{display:flex;border:1px solid #e2e4ec;border-radius:12px;overflow:hidden;background:#fff}
@@ -2046,7 +2061,7 @@ Each insurance category now opens: included charges/policies grouped by descript
 </style>
 
 <!--
-V4.2 Alpha 19 — credit reconciliation layer.
+V4.2 Stable — credit reconciliation layer.
 - Credit audit moved directly below Kibbutz import.
 - XLSX importer reads all transaction sheets and skips summary/footer rows.
 - Manual Spendee search is available even when no automatic match was found.
@@ -2063,7 +2078,7 @@ V4.2 Alpha 19 — credit reconciliation layer.
 </style>
 
 <!--
-V4.2 Alpha 19 — learned credit-to-Spendee matching.
+V4.2 Stable — learned credit-to-Spendee matching.
 Manual selection of a Spendee transaction now creates a persistent merchant-to-Spendee matching rule.
 Next imports try learned rules before generic date/amount matching.
 Exact learned matches can resolve automatically; amount discrepancies always remain for explicit user approval.
@@ -2071,8 +2086,8 @@ Exact learned matches can resolve automatically; amount discrepancies always rem
 <style id="alpha12css">
 .credit-finder-hint{font-size:11px;color:#667085;margin:0 0 7px}.credit-finder-mode{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.credit-finder-mode button{padding:6px 9px!important;font-size:11px!important}.credit-candidate.related{border-color:#b9c8ee;background:#f8faff}.credit-related-badge{display:inline-block;margin-top:4px;padding:2px 6px;border-radius:999px;background:#eaf1ff;color:#315f9f;font-size:10px;font-weight:800}
 </style>
-<!-- V4.2 Alpha 19: fixes runtime candidate-search failure from Alpha 12 by using a locally available scoring function. Category/all/manual searches now always render candidate transactions or a visible error message. -->
-<!-- V4.2 Alpha 19: fixes the remaining txRelated runtime-scope bug in candidate search. -->
+<!-- V4.2 Stable: fixes runtime candidate-search failure from Alpha 12 by using a locally available scoring function. Category/all/manual searches now always render candidate transactions or a visible error message. -->
+<!-- V4.2 Stable: fixes the remaining txRelated runtime-scope bug in candidate search. -->
 
 <style id="alpha15-spendee-category-style">
 .spendee-category-map-list{display:grid;gap:7px}
@@ -2090,19 +2105,47 @@ Exact learned matches can resolve automatically; amount discrepancies always rem
 }
 </style>
 <!--
-V4.2 Alpha 19 — preserves original Spendee categories instead of destructively replacing them.
+V4.2 Stable — preserves original Spendee categories instead of destructively replacing them.
 Distinct categories such as Kופת חולים, child insurance, and car insurance remain distinct in the app.
 Budget mapping is retained separately. Manual credit search sees both original and mapped categories.
 Existing already-imported rows cannot recover their original category; one fresh Spendee import is required to populate source-category data.
 -->
 <!--
-V4.2 Alpha 19
+V4.2 Stable
 - Removes the explanatory Spendee-vs-app category card from Settings.
 - Credit reconciliation search recognizes legacy category mappings from older imports.
 - "All transactions" is now truly unfiltered.
 - Category-guided search falls back to all transactions rather than an empty result.
 -->
 
+<style id="tx-edit-style">
+.tx-edit-backdrop{
+  position:fixed;inset:0;z-index:10050;background:rgba(24,28,45,.45);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+  backdrop-filter:blur(3px);
+}
+.tx-edit-backdrop.hidden{display:none!important}
+.tx-edit-modal{
+  width:min(440px,100%);background:#fff;border-radius:20px;padding:18px 18px 14px;
+  box-shadow:0 18px 50px rgba(30,35,70,.22);direction:rtl;border:1px solid #e5e7ef;
+}
+.tx-edit-modal h3{margin:0 0 4px;font-size:20px}
+.tx-edit-sub{color:#6b7385;font-size:13px;margin-bottom:14px;line-height:1.45}
+.tx-edit-field{display:grid;gap:6px;margin-bottom:12px}
+.tx-edit-field label{font-size:13px;font-weight:800;color:#3f4658}
+.tx-edit-field select,.tx-edit-field input{
+  width:100%;border:1px solid #dfe3ec;border-radius:12px;padding:10px 12px;
+  font-size:14px;background:#fff
+}
+.tx-edit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.tx-edit-actions button{flex:1;min-width:120px}
+.tx-edit-note{font-size:12px;color:#6b7385;margin-top:8px;line-height:1.45}
+.tx-action-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:520px){
+  .tx-edit-modal{padding:14px}
+  .tx-edit-actions button{min-width:0;width:100%}
+}
+</style>
 <style id="alpha17-fixed-health-style">
 .fixed-health-badge{
  display:inline-block;padding:3px 7px;border-radius:999px;background:#fce7f3;color:#9d174d;
@@ -2110,28 +2153,39 @@ V4.2 Alpha 19
 }
 </style>
 <!--
-V4.2 Alpha 19 — fixed health-fund category.
+V4.2 Stable — fixed health-fund category.
 Creates a distinct virtual category "קופת חולים - קבוע".
 Recognizes recurring health charges from 2025-09-01 using known patterns:
 ~₪63 כללית מושלם and ~₪130 הראל סיעוד, while keeping raw Spendee data untouched.
 The category is available in credit reconciliation and feeds the Insurance > Health Fund view.
 -->
 <!--
-V4.2 Alpha 19 — precise fixed health-fund recognition based on Clalit quarterly statement:
+V4.2 Stable — precise fixed health-fund recognition based on Clalit quarterly statement:
 01/05/26 Clalit Mushlam 62.99; Harel nursing 128.61
 01/06/26 Clalit Mushlam 63.72; Harel nursing 130.09
 01/07/26 Clalit Mushlam 63.54; Harel nursing 129.72
 Detection from 2025-09-01: Clalit ~61.5–65.5, Harel nursing ~127–132, with merchant/name evidence preferred.
 -->
 <!--
-V4.2 Alpha 19 — "קופת חולים - קבוע" is now a real analytical category.
+V4.2 Stable — "קופת חולים - קבוע" is now a real analytical category.
 Fixed recurring Clalit Mushlam / Harel nursing transactions are reclassified at the allTx() layer,
 so History, category breakdowns, Month and Insurance no longer swallow them into "תרופות ורופאים".
 Raw Spendee records remain unchanged for traceability and re-import safety.
 -->
+<!--
+V4.2 Stable — Insurance cleanup.
+Historical aggregate rows such as "השלמת מאי 2026 לפי צילום Overview" are excluded from the Insurance tab.
+They remain available elsewhere in historical totals, but are no longer counted as individual insurance charges.
+-->
+<!--
+V4.2 Stable — historical summary de-duplication.
+Synthetic rows such as "השלמת מאי 2026 לפי צילום Overview" are retained only when no real expense
+exists for the same month and mapped category. If detailed Spendee data exists, the synthetic
+completion is excluded from all analytical totals, preventing double-counting.
+-->
 </head>
 <body>
-<header><div class="wrap"><h1>מנהל התקציב שלי</h1><div class="sub">V4.2 Alpha 8 · תחזית סוף חודש · תחזית קיבוץ אוטומטית · סנכרון אוטומטי</div></div></header>
+<header><div class="wrap"><h1>מנהל התקציב שלי</h1><div class="sub">V4.2 Stable · תחזית סוף חודש · תחזית קיבוץ אוטומטית · סנכרון אוטומטי</div></div></header>
 <div class="wrap">
 <div class="navtabs">
 <button id="budgetTab" class="active" onclick="showPage('budget')">החודש</button>
@@ -2192,6 +2246,7 @@ Raw Spendee records remain unchanged for traceability and re-import safety.
         <div id="modernNetSub" class="sub"></div>
       </div>
     </div>
+    <button type="button" class="secondary" style="width:100%;margin-top:4px;min-height:48px;border-radius:16px;font-weight:850;font-size:16px" onclick="openTransactionsBreakdown()">📋 כל תנועות החודש · עריכה</button>
   </div>
 
   <select id="month" class="internal-month-select" aria-hidden="true" tabindex="-1"></select>
@@ -2350,7 +2405,7 @@ Raw Spendee records remain unchanged for traceability and re-import safety.
     </div>
   </details>
 
-  <details class="app-accordion">
+  <details id="transactionsBreakdown" class="app-accordion">
     <summary>↔ תנועות החודש <span id="count"></span></summary>
     <div class="accordion-body scroll">
       <div id="rc25RecentTx" class="rc25-recent-tx"></div>
@@ -2670,7 +2725,7 @@ Raw Spendee records remain unchanged for traceability and re-import safety.
 </div>
 <div class="muted tiny" style="text-align:center;margin:18px">הנתונים נשמרים מקומית בדפדפן, וכאשר הסנכרון מחובר גם בענן Supabase. קובץ ה־CSV עצמו אינו נשלח לשרת; רק נתוני התקציב שנקלטו נשמרים בענן.</div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script>
 const DEFAULTS={
  incomeTarget:18465,savingTarget:500,
@@ -2707,7 +2762,62 @@ function hasUnsyncedLocalChanges(){return localChangedAt()>lastCloudSyncAt()}
 function markLocalChange(){localStorage.setItem(LOCAL_CHANGED_KEY,String(Date.now()))}
 function clearLocalDirtyIfSynced(syncStartedAt){if(localChangedAt()<=syncStartedAt)localStorage.setItem(LOCAL_CHANGED_KEY,"0")}
 
+// --- Boot performance: coalesce renders and defer non-critical work ---
+window.__appBooting = true;
+window.__bootRenderQueued = false;
+window.__bootRenderTimer = null;
+window.__firstPaintDone = false;
+function scheduleBootRender(fn){
+  // During boot, collapse many render() callers into one frame.
+  if(!window.__appBooting){
+    try{ fn(); }catch(e){ console.error(e); }
+    return;
+  }
+  window.__bootRenderQueued = true;
+  window.__bootPendingFn = fn;
+  if(window.__bootRenderTimer) return;
+  window.__bootRenderTimer = setTimeout(function(){
+    window.__bootRenderTimer = null;
+    const run = window.__bootPendingFn;
+    window.__bootPendingFn = null;
+    window.__bootRenderQueued = false;
+    try{ if(typeof run==="function") run(); else if(typeof render==="function") render(); }catch(e){ console.error(e); }
+  }, 0);
+}
+function endAppBoot(){
+  if(!window.__appBooting) return;
+  window.__appBooting = false;
+  if(window.__bootRenderTimer){
+    clearTimeout(window.__bootRenderTimer);
+    window.__bootRenderTimer = null;
+  }
+  // One final synchronized paint after boot hooks settle.
+  try{
+    if(typeof render==="function") render();
+    if(typeof window.__updateModernDashboard==="function") window.__updateModernDashboard();
+  }catch(e){ console.error(e); }
+  window.__firstPaintDone = true;
+  // Run deferred boot tasks with idle time so first paint stays fast.
+  const runDeferred = function(tasks){
+    let i=0;
+    const step=function(){
+      if(i>=tasks.length) return;
+      try{ tasks[i++](); }catch(e){ console.error(e); }
+      if(i<tasks.length){
+        if(typeof requestIdleCallback==="function") requestIdleCallback(step,{timeout:1200});
+        else setTimeout(step, 50);
+      }
+    };
+    if(typeof requestIdleCallback==="function") requestIdleCallback(step,{timeout:800});
+    else setTimeout(step, 80);
+  };
+  window.__runDeferredBoot = runDeferred;
+}
+window.endAppBoot = endAppBoot;
+window.scheduleBootRender = scheduleBootRender;
+
 function save(markDirty=true){
+ if(typeof invalidateAllTxCache==="function") invalidateAllTxCache();
  localStorage.setItem("budgetV36",JSON.stringify(state));
  if(!cloudApplying && markDirty){
    markLocalChange();
@@ -2758,6 +2868,14 @@ async function initCloudClient(){
  const key=localStorage.getItem("budgetSupabaseKey")||"";
  if(!key){
    setCloudStatus("נדרש Publishable Key כדי להפעיל סנכרון.","warn");
+   return;
+ }
+ // Wait briefly if the deferred Supabase SDK has not attached yet.
+ if(!window.supabase){
+   for(let i=0;i<40 && !window.supabase;i++) await new Promise(r=>setTimeout(r,50));
+ }
+ if(!window.supabase){
+   setCloudStatus("ספריית הענן עדיין נטענת. נסה שוב בעוד רגע.","warn");
    return;
  }
  try{
@@ -2941,7 +3059,7 @@ function showFinanceView(name){
   if($("incomeViewTab")) $("incomeViewTab").classList.toggle("active",name==="income");
   const title=$("financeBreakdownTitle"), hint=$("financeBreakdownHint");
   if(title) title.textContent=name==="income"?"📈 הכנסות בפועל לפי מקור":"📊 הוצאות בפועל לפי קטגוריה";
-  if(hint) hint.textContent=name==="income"?"הסכומים המוצגים הם הכנסות שהתקבלו בפועל. מתחת לכל מקור מופיעות ההכנסות שמרכיבות אותו.":"הסכום הגדול הוא ההוצאה שבוצעה בפועל. המסגרת והיתרה מוצגות כמידע משני.";
+  if(hint) hint.textContent=name==="income"?"הסכומים המוצגים הם הכנסות שהתקבלו בפועל. מתחת לכל מקור מופיעות ההכנסות שמרכיבות אותו.":"מתחת לכל קטגוריה מופיעות התנועות. לחצו «ערוך» כדי לשנות סיווג של עסקה בודדת.";
 }
 function openExpectedExpensesBreakdown(){
   if(typeof showCommitmentView==="function") showCommitmentView("expected");
@@ -2961,39 +3079,140 @@ function openFinanceBreakdown(name){
     setTimeout(()=>box.scrollIntoView({behavior:"smooth",block:"start"}),30);
   }
 }
+function openTransactionsBreakdown(){
+  const box=$("transactionsBreakdown");
+  if(box){
+    box.open=true;
+    // also reveal full table so edit buttons are visible without extra click
+    const full=$("rc25FullTx");
+    const btn=$("rc25ShowAllTx");
+    if(full) full.classList.remove("hidden");
+    if(btn) btn.textContent="הסתר תנועות";
+    setTimeout(()=>box.scrollIntoView({behavior:"smooth",block:"start"}),30);
+  }
+}
+window.openTransactionsBreakdown=openTransactionsBreakdown;
+
+function isInsuranceSyntheticCompletion(tx){
+  if(!tx) return false;
+  const text = normAuditText([
+    tx.note, tx.description, tx.name, tx.title, tx.wallet, tx.source
+  ].filter(Boolean).join(" "));
+  const completion = text.includes("השלמת") || text.includes("completion");
+  const overview = text.includes("overview") || text.includes("צילום");
+  return completion && overview;
+}
+
+function isHistoricalCompletionRow(tx){
+  if(!tx || (tx.type||"").toLowerCase()!=="expense") return false;
+  const text = normAuditText([
+    tx.note, tx.wallet, tx.description, tx.name, tx.title
+  ].filter(Boolean).join(" "));
+  const completion = text.includes("השלמת") || text.includes("completion");
+  const overview = text.includes("overview") || text.includes("צילום");
+  return completion && overview;
+}
+
+const FIXED_HEALTH_CATEGORY = "קופת חולים - קבוע";
+const FIXED_HEALTH_START = "2025-09-01";
+
+function fixedHealthText(tx){
+  return normAuditText([
+    tx?.spendeeCategory, tx?.category, tx?.note, tx?.merchant, tx?.description
+  ].filter(Boolean).join(" "));
+}
+function isHealthLikeTransaction(tx){
+  const t = fixedHealthText(tx);
+  return ["קופת חולים","כללית","מושלם","הראל","סיעוד","בריאות","תרופות ורופאים","רפואה"]
+    .some(k => t.includes(normAuditText(k)));
+}
+function isFixedHealthTransaction(tx){
+  if(!tx) return false;
+  // Manual category override always wins — never force fixed-health on it.
+  try{
+    const sk = typeof stableTxKey==="function" ? stableTxKey(tx) : null;
+    if(sk && state.categoryOverrides && state.categoryOverrides[sk]) return false;
+  }catch(_){}
+  const d = (tx.date||"").slice(0,10);
+  if(d && d < FIXED_HEALTH_START) return false;
+  const t = fixedHealthText(tx);
+  const amt = Math.abs(Number(tx.amount||0));
+  const srcCat = normAuditText(tx?.spendeeCategory || tx?.originalCategory || "");
+
+  // Strong merchant evidence (preferred).
+  if(t.includes("כללית") && t.includes("מושלם") && amt>=61.5 && amt<=65.5) return true;
+  if(t.includes("הראל") && t.includes("סיעוד") && amt>=127 && amt<=132) return true;
+
+  // Amount-only only when the SOURCE category is clearly a health-fund line,
+  // never for generic "תרופות ורופאים" doctor visits (false positives around ₪64).
+  const isFundCat =
+    srcCat.includes("קופת חולים") || srcCat.includes("קופח") ||
+    (t.includes("קופת חולים") && !t.includes("תרופות") && !t.includes("רופא") && !t.includes("מרפאה") && !t.includes("בית מרקחת"));
+  if(isFundCat){
+    if(amt>=61.5 && amt<=65.5) return true;
+    if(amt>=127 && amt<=132) return true;
+  }
+  return false;
+}
+window.isFixedHealthTransaction = isFixedHealthTransaction;
+window.fixedHealthCategoryName = FIXED_HEALTH_CATEGORY;
+window.isInsuranceSyntheticCompletion = isInsuranceSyntheticCompletion;
+window.isHistoricalCompletionRow = isHistoricalCompletionRow;
+
+function correctionForRawTx(tx){
+  if(!tx) return null;
+  state.spendeeCorrections = state.spendeeCorrections || {};
+  const exact = state.spendeeCorrections[txKey(tx)];
+  if(exact) return exact;
+  // Fallback identity ignores category so corrections survive remapping/reimport.
+  const id = [tx?.date||"", norm(tx?.type), Number(tx?.amount||0).toFixed(2), norm(tx?.wallet), norm(tx?.note)].join("|");
+  for(const [key,c] of Object.entries(state.spendeeCorrections)){
+    const p = key.split("|");
+    if(p.length >= 6){
+      const oldId = [p[0], p[1], p[3], p[4], p.slice(5).join("|")].join("|");
+      if(oldId === id) return c;
+    }
+  }
+  return null;
+}
 
 function insuranceBucket(x){
- const raw=norm(x.category||"");
- const mapped=norm(mapCat(x.category||""));
- const details=norm([
-   x.category,x.note,x.merchant,x.description,x.name,x.payee,x.title
- ].filter(Boolean).join(" "));
- const compact=details.replace(/[״"'׳.,:;()\-–_/\\]/g," ").replace(/\s+/g," ");
+  if(!x) return null;
+  // Aggregate "Overview completion" rows must never appear as insurance charges.
+  if(isInsuranceSyntheticCompletion(x)) return null;
+  if(x.fixedHealth || isFixedHealthTransaction(x)) return "health";
 
- // Health fund must be checked from the full transaction text, because Spendee
- // may classify it under "תרופות ורופאים".
- if(
-   compact.includes("קופת חולים") || compact.includes("קופח") ||
-   compact.includes("כללית") || compact.includes("מכבי") ||
-   compact.includes("מאוחדת") || compact.includes("לאומית")
- ) return "health";
+  const raw=norm(x.category||"");
+  const mapped=norm(mapCat(x.category||""));
+  const details=norm([
+    x.category,x.note,x.merchant,x.description,x.name,x.payee,x.title
+  ].filter(Boolean).join(" "));
+  const compact=details.replace(/[״"'׳.,:;()\-–_/\\]/g," ").replace(/\s+/g," ");
 
- if(
-   raw==="ביטוחים - אילן" || raw==="ביטוחים – אילן" ||
-   mapped==="ביטוחים - אילן" || mapped==="ביטוחים – אילן"
- ) return "ilan";
+  // Health fund must be checked from the full transaction text, because Spendee
+  // may classify it under "תרופות ורופאים".
+  if(
+    compact.includes("קופת חולים") || compact.includes("קופח") ||
+    compact.includes("כללית") || compact.includes("מכבי") ||
+    compact.includes("מאוחדת") || compact.includes("לאומית")
+  ) return "health";
 
- if(
-   raw==="ביטוחים - ילדים" || raw==="ביטוחים – ילדים" ||
-   raw==="ביטוחים אחרים" || mapped==="ביטוחים אחרים"
- ) return "children";
+  if(
+    raw==="ביטוחים - אילן" || raw==="ביטוחים – אילן" ||
+    mapped==="ביטוחים - אילן" || mapped==="ביטוחים – אילן"
+  ) return "ilan";
 
- if(
-   raw==="ביטוחי רכב" || raw==="רישוי וביטוח רכב" ||
-   raw==="רישיון וביטוחי רכב" || mapped==="רישוי וביטוח רכב"
- ) return "car";
+  if(
+    raw==="ביטוחים - ילדים" || raw==="ביטוחים – ילדים" ||
+    raw==="ביטוחים אחרים" || mapped==="ביטוחים אחרים"
+  ) return "children";
 
- return null;
+  if(
+    raw==="ביטוחי רכב" || raw==="רישוי וביטוח רכב" ||
+    raw==="רישיון וביטוחי רכב" || mapped==="רישוי וביטוח רכב"
+  ) return "car";
+
+  return null;
 }
 
 
@@ -3009,6 +3228,13 @@ function insuranceBucketTitle(bucket){
 }
 
 function insuranceDetailItemName(x,bucket){
+ if(bucket==="health" && (x?.fixedHealth || (typeof isFixedHealthTransaction==="function" && isFixedHealthTransaction(x)))){
+   const t = typeof fixedHealthText==="function" ? fixedHealthText(x) : normAuditText([x?.note,x?.category].filter(Boolean).join(" "));
+   const amt = Math.abs(Number(x?.amount||0));
+   if(t.includes("הראל") || (amt>=127 && amt<=132)) return "הראל סיעוד";
+   if(t.includes("כללית") || (amt>=61.5 && amt<=65.5)) return "כללית מושלם";
+   return (window.fixedHealthCategoryName || "קופת חולים - קבוע");
+ }
  const note=norm(x.note||"");
  const raw=norm(x.category||"");
  if(note && note!==raw)return note;
@@ -3244,7 +3470,7 @@ function mapCat(c){
  const map={
  "קיבוץ - הוצאות דירה":"קיבוץ – הוצאות דירה","קיבוץ - מחיה":"קיבוץ – מחיה","קיבוץ - חינוך":"קיבוץ – חינוך","קיבוץ - פנאי ותרבות":"קיבוץ – פנאי ותרבות",
  "שכר דירה":"שכירות + ארנונה","רישיון וביטוחי רכב":"ביטוחי רכב","ביטוחים – אילן":"ביטוחים - אילן",
- "חנייה וכבישי אגרה":"תחבורה","קופת חולים – קבוע":"קופת חולים - קבוע","ביטוחים – ילדים":"ביטוחים - ילדים",
+ "חנייה וכבישי אגרה":"תחבורה","קופת חולים – קבוע":"קופת חולים - קבוע","קופת חולים - קבוע":"קופת חולים - קבוע","ביטוחים – ילדים":"ביטוחים - ילדים",
  "טלפון עלמא ויובל":"טלפון","טלפון איילה, עלמא ויובל":"טלפון","כללי":"שונות","אליאקספרס":"קניות לבית"
  };
  return map[c]||c
@@ -3335,7 +3561,7 @@ async function importCreditAuditFile(file){
  let matrices=[];
  if(file.name.toLowerCase().endsWith(".csv"))matrices=[parseCSV(await file.text())];
  else{
-   if(!window.XLSX)throw Error("ספריית XLSX לא נטענה. ודא שיש חיבור לאינטרנט ונסה שוב.");
+   if(!window.XLSX){if(typeof ensureXlsxLoaded==="function"){await ensureXlsxLoaded();}if(!window.XLSX)throw Error("ספריית XLSX לא נטענה. ודא שיש חיבור לאינטרנט ונסה שוב.");}
    const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
    matrices=wb.SheetNames.map(n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:"",raw:true}));
  }
@@ -3528,6 +3754,13 @@ function txKey(x){
  // The note/wallet are included so two same-day purchases with the same amount/category are not collapsed accidentally.
  return [x.date||"",norm(x.type),norm(x.category),Number(x.amount||0).toFixed(2),norm(x.wallet),norm(x.note)].join("|");
 }
+function stableTxKey(x){
+  // Category-independent identity — survives fixed-health rewrite and category edits.
+  const rawAmt = (x && x.originalSpendeeAmount != null)
+    ? (Number(x.amount) < 0 ? -1 : 1) * Math.abs(Number(x.originalSpendeeAmount))
+    : Number(x?.amount || 0);
+  return [x?.date||"", norm(x?.type), rawAmt.toFixed(2), norm(x?.wallet), norm(x?.note)].join("|");
+}
 function isMonthlySummaryImport(out){
  if(!out.length)return false;
  const months=new Set(out.map(x=>x.date.slice(0,7)));
@@ -3640,15 +3873,112 @@ function hasSplitKibbutzForMonth(monthKey){
  );
 }
 
+
+let _allTxCache=null, _allTxCacheKey=null;
+function invalidateAllTxCache(){ _allTxCache=null; _allTxCacheKey=null; }
+function allTxCacheKey(){
+  // cheap fingerprint: lengths + correction/override counts + last import stamp
+  const s=state||{};
+  return [
+    (s.spendee||[]).length,
+    (s.manual||[]).length,
+    Object.keys(s.spendeeCorrections||{}).length,
+    Object.keys(s.categoryOverrides||{}).length,
+    Object.keys(s.amountOverrides||{}).length,
+    s.lastImport?.hi||"",
+    s.lastImport?.count||0
+  ].join("|");
+}
 function allTx(){
- const manual=state.manual||[];
- const spendee=(state.spendee||[]).filter(x=>{
-   if((x.type||"").toLowerCase()!=="expense")return true;
-   if(norm(x.category)!=="הוצאות קיבוץ")return true;
-   const m=budgetMonth(x);
-   return !hasSplitKibbutzForMonth(m);
- });
- return spendee.concat(manual);
+  const _ck=allTxCacheKey();
+  if(_allTxCache && _allTxCacheKey===_ck) return _allTxCache;
+  // Single consolidated pipeline (was previously layered across Alpha 10/19/21):
+  // 1) Kibbutz legacy de-duplication
+  // 2) Approved credit-card amount corrections
+  // 3) Fixed health-fund virtual category
+  // 4) Historical Overview-completion de-duplication
+  state.spendeeCorrections = state.spendeeCorrections || {};
+  const manual = state.manual || [];
+  let rows = (state.spendee || []).filter(x => {
+    if((x.type || "").toLowerCase() !== "expense") return true;
+    if(norm(x.category) !== "הוצאות קיבוץ") return true;
+    const m = budgetMonth(x);
+    return !hasSplitKibbutzForMonth(m);
+  }).concat(manual);
+
+  // Apply amount corrections (credit-card) then manual amount overrides
+  state.amountOverrides = state.amountOverrides || {};
+  rows = rows.map(x => {
+    if(!x) return x;
+    let out = x;
+    if(x?.source === "Spendee"){
+      const c = correctionForRawTx(x);
+      if(c){
+        out = {...x};
+        out.originalSpendeeAmount = Math.abs(Number(x.amount || 0));
+        out.amount = (Number(x.amount) < 0 ? -1 : 1) * Math.abs(Number(c.correctedAmount));
+        out.creditCardCorrected = true;
+      }
+    }
+    const sk = stableTxKey(out);
+    const ao = state.amountOverrides[sk];
+    if(ao != null && Number.isFinite(Number(ao))){
+      const base = out === x ? {...x} : out;
+      if(base.originalSpendeeAmount == null) base.originalSpendeeAmount = Math.abs(Number(x.amount || 0));
+      const sign = (Number(x.amount) < 0 || (x.type||"").toLowerCase()==="expense") ? -1 : 1;
+      // Keep expense negative / income positive convention when original was signed that way
+      const origSign = Number(x.amount) < 0 ? -1 : (Number(x.amount) > 0 ? 1 : sign);
+      base.amount = origSign * Math.abs(Number(ao));
+      base.amountOverridden = true;
+      out = base;
+    }
+    return out;
+  });
+
+  // Manual category overrides first, then fixed health-fund reclassification.
+  state.categoryOverrides = state.categoryOverrides || {};
+  rows = rows.map(tx => {
+    if(!tx) return tx;
+    const sk = stableTxKey(tx);
+    const ov = state.categoryOverrides[sk];
+    if(ov){
+      return {
+        ...tx,
+        originalCategory: tx.originalCategory || tx.category,
+        spendeeCategory: tx.spendeeCategory || tx.originalCategory || tx.category,
+        category: ov,
+        categoryOverridden: true,
+        fixedHealth: false
+      };
+    }
+    if((tx.type || "").toLowerCase() !== "expense" || !isFixedHealthTransaction(tx)) return tx;
+    return {
+      ...tx,
+      originalCategory: tx.originalCategory || tx.category,
+      spendeeCategory: tx.spendeeCategory || tx.originalCategory || tx.category,
+      category: FIXED_HEALTH_CATEGORY,
+      fixedHealth: true
+    };
+  });
+
+  // Drop synthetic Overview completions only when real expense data exists
+  // for the same month + mapped category (prevents double counting).
+  const realKeys = new Set();
+  rows.forEach(tx => {
+    if((tx?.type || "").toLowerCase() !== "expense") return;
+    if(isHistoricalCompletionRow(tx)) return;
+    const m = (tx?.date || "").slice(0, 7);
+    const c = mapCat(tx?.category || "");
+    if(m && c) realKeys.add(m + "|||" + c);
+  });
+  rows = rows.filter(tx => {
+    if(!isHistoricalCompletionRow(tx)) return true;
+    const key = (tx?.date || "").slice(0, 7) + "|||" + mapCat(tx?.category || "");
+    return !realKeys.has(key);
+  });
+
+  _allTxCache=rows; _allTxCacheKey=_ck;
+  return rows;
 }
 function buildMonths(){
  const s=new Set(allTx().flatMap(x=>[txMonth(x),budgetMonth(x)])); let d=new Date(); for(let i=-4;i<=6;i++){let x=new Date(d.getFullYear(),d.getMonth()+i,1);s.add(x.toISOString().slice(0,7))}
@@ -3661,6 +3991,11 @@ function ensureV4State(){
  state.settings=state.settings||{};
  state.expectedExpenses=state.expectedExpenses||[];
  state.txMeta=state.txMeta||{};
+ state.spendeeCorrections=state.spendeeCorrections||{};
+ state.creditAuditRules=state.creditAuditRules||{};
+ state.creditMatchRules=state.creditMatchRules||{};
+ state.categoryOverrides=state.categoryOverrides||{};
+ state.amountOverrides=state.amountOverrides||{};
  if(!Number.isFinite(Number(state.settings.safetyBuffer))) state.settings.safetyBuffer=0;
 }
 
@@ -4178,6 +4513,136 @@ function suggestExpenseClass(x,monthTx=[]){
  if(a>=1500 && ((avg&&a>avg*2.5)||(!avg&&budget&&a>budget*.6)||(!avg&&!budget)))return {class:"exceptional",reason:"הסכום גבוה משמעותית מהרגיל"};
  return null;
 }
+
+let _txEditStableKey = null;
+let _txEditSource = null; // "spendee" | "manual"
+
+function availableTxCategories(selected){
+  ensureV4State();
+  const budgets = Object.keys(state.settings?.budgets || {});
+  const extras = [
+    FIXED_HEALTH_CATEGORY, "קופת חולים", "ביטוחים - ילדים", "ביטוחים - אילן",
+    "ביטוחי רכב", "העברת כספים", "משיכת מזומן", "הוצאות קיבוץ"
+  ];
+  const fromData = [];
+  (state.spendee||[]).concat(state.manual||[]).forEach(x=>{
+    const c = mapCat(x?.spendeeCategory || x?.category || "");
+    if(c) fromData.push(c);
+  });
+  const cats = [...new Set([...budgets, ...extras, ...fromData, selected].filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,"he"));
+  return cats;
+}
+
+function findRawTxByStableKey(sk){
+  const match = (list)=>{
+    for(const x of (list||[])){
+      if(stableTxKey(x)===sk) return x;
+    }
+    return null;
+  };
+  const s = match(state.spendee);
+  if(s) return {tx:s, source:"spendee"};
+  const m = match(state.manual);
+  if(m) return {tx:m, source:"manual"};
+  // Fallback: try allTx clones (amount-corrected) and match stable key
+  for(const x of allTx()){
+    if(stableTxKey(x)===sk) return {tx:x, source:x.source==="Spendee"?"spendee":"manual", virtual:true};
+  }
+  return null;
+}
+
+function openTxEditor(encodedStableKey){
+  ensureV4State();
+  const sk = decodeURIComponent(encodedStableKey);
+  const found = findRawTxByStableKey(sk);
+  if(!found){ alert("לא נמצאה העסקה לעריכה."); return; }
+  _txEditStableKey = sk;
+  _txEditSource = found.source;
+  const tx = found.tx;
+  const displayed = allTx().find(t=>stableTxKey(t)===sk) || tx;
+  const currentCat = mapCat(displayed.category || tx.category || "");
+  const dispAmt = Math.abs(Number(displayed.amount||tx.amount||0));
+  const flags = [];
+  if(displayed.categoryOverridden) flags.push('<b style="color:#5b4b8a">סיווג ידני</b>');
+  if(displayed.amountOverridden) flags.push('<b style="color:#5b4b8a">סכום ידני</b>');
+  if(displayed.fixedHealth) flags.push('<span style="color:#9d174d">סיווג אוטומטי: קופ״ח קבוע</span>');
+  if(displayed.creditCardCorrected) flags.push('<span style="color:#315f9f">תוקן מאשראי</span>');
+  const sub = `${(displayed.date||tx.date||"").slice(0,10)} · ${fmt(dispAmt)} · ${escapeHtml(displayed.note||tx.note||tx.category||"")}`;
+  $("txEditSub").innerHTML = sub + (flags.length ? " · " + flags.join(" · ") : "");
+  const sel = $("txEditCategory");
+  const cats = availableTxCategories(currentCat);
+  sel.innerHTML = cats.map(c=>`<option value="${escapeHtml(c)}" ${c===currentCat?"selected":""}>${escapeHtml(c)}</option>`).join("");
+  const amtEl = $("txEditAmount");
+  if(amtEl) amtEl.value = String(Number(dispAmt.toFixed(2)));
+  const noteEl = $("txEditNote");
+  if(noteEl) noteEl.value = tx.note || "";
+  // Note editing only for manual rows (Spendee note is source-of-truth from import)
+  $("txEditNoteWrap").style.display = (found.source==="manual" && !found.virtual) ? "grid" : "none";
+  $("txEditBackdrop").classList.remove("hidden");
+  sel.focus();
+}
+
+function closeTxEditor(){
+  $("txEditBackdrop")?.classList.add("hidden");
+  _txEditStableKey = null;
+  _txEditSource = null;
+}
+
+function saveTxEditor(){
+  if(!_txEditStableKey) return;
+  ensureV4State();
+  const cat = ($("txEditCategory")?.value || "").trim();
+  if(!cat){ alert("יש לבחור קטגוריה."); return; }
+  const amtRaw = ($("txEditAmount")?.value || "").trim();
+  const amt = Number(amtRaw);
+  if(!Number.isFinite(amt) || amt < 0){ alert("יש להזין סכום תקין (0 או יותר)."); return; }
+
+  state.categoryOverrides = state.categoryOverrides || {};
+  state.amountOverrides = state.amountOverrides || {};
+  state.categoryOverrides[_txEditStableKey] = cat;
+  state.amountOverrides[_txEditStableKey] = amt;
+
+  // For manual transactions, also update the stored row so exports stay consistent.
+  if(_txEditSource==="manual"){
+    const row = (state.manual||[]).find(x=>stableTxKey(x)===_txEditStableKey);
+    if(row){
+      row.category = cat;
+      const sign = Number(row.amount) < 0 || (row.type||"").toLowerCase()==="expense" ? -1 : 1;
+      row.amount = sign * Math.abs(amt);
+      const note = ($("txEditNote")?.value || "").trim();
+      if($("txEditNoteWrap")?.style.display !== "none") row.note = note;
+    }
+  }
+  if(typeof invalidateAllTxCache==="function") invalidateAllTxCache();
+  save();
+  closeTxEditor();
+  try{ render(); renderInsurancePage(); }catch(e){ console.error(e); }
+}
+
+function clearTxEdits(){
+  if(!_txEditStableKey) return;
+  ensureV4State();
+  if(state.categoryOverrides && _txEditStableKey in state.categoryOverrides){
+    delete state.categoryOverrides[_txEditStableKey];
+  }
+  if(state.amountOverrides && _txEditStableKey in state.amountOverrides){
+    delete state.amountOverrides[_txEditStableKey];
+  }
+  if(typeof invalidateAllTxCache==="function") invalidateAllTxCache();
+  save();
+  closeTxEditor();
+  try{ render(); renderInsurancePage(); }catch(e){ console.error(e); }
+}
+window.clearTxEdits = clearTxEdits;
+// backward-compatible alias
+function clearTxCategoryOverride(){ clearTxEdits(); }
+
+window.openTxEditor = openTxEditor;
+window.closeTxEditor = closeTxEditor;
+window.saveTxEditor = saveTxEditor;
+window.clearTxCategoryOverride = clearTxCategoryOverride;
+
 function classifyTx(encodedKey){
  ensureV4State(); const key=decodeURIComponent(encodedKey),x=allTx().find(t=>txKey(t)===key); if(!x)return;
  const cur=expenseClass(x),sug=suggestExpenseClass(x,allTx().filter(t=>budgetMonth(t)===budgetMonth(x)));
@@ -4890,10 +5355,25 @@ function render(){
 
  let msg,cls;if(pct>=100){msg="חריגה מהמסגרת החודשית.";cls="bad"}else if(isCur&&delta>500){msg="קצב ההוצאות כרגע גבוה מהמסגרת. בדוק במיוחד קטגוריות כתומות ואדומות.";cls="warn"}else{msg="התקציב נמצא כרגע במסלול סביר.";cls="ok"}
  $("alert").innerHTML=`<div class="alert ${cls}" style="margin-bottom:12px">${msg}</div>`;
- const expenseRows=Object.entries(spentByCat).map(([c,s])=>({c,s,b:Number(bud[c]||0)})).filter(r=>r.s>0).sort((a,b)=>b.s-a.s);
- $("cats").innerHTML=expenseRows.length ? expenseRows.map(({c,s,b})=>{
+ const expenseGroups={};
+ tx.filter(x=>(x.type||"").toLowerCase()==="expense").forEach(x=>{
+   const c=mapCat(x.category);
+   if(!expenseGroups[c]) expenseGroups[c]=[];
+   expenseGroups[c].push(x);
+ });
+ const expenseRows=Object.entries(spentByCat).map(([c,s])=>({c,s,b:Number(bud[c]||0),items:expenseGroups[c]||[]})).filter(r=>r.s>0).sort((a,b)=>b.s-a.s);
+ $("cats").innerHTML=expenseRows.length ? expenseRows.map(({c,s,b,items})=>{
    const q=b?s/b*100:0, remaining=b?Math.max(0,b-s):0;
-   return `<div class="cat rc48-expense-row"><div class="rc48-row-top"><span class="rc48-cat-name">${c}</span><b class="rc48-actual">${fmt(s)}</b></div><div class="rc48-actual-label">הוצאה בפועל</div><div class="category-edit-wrap"><button class="category-edit-button" type="button" onclick="event.stopPropagation();editCategoryBudgetEncoded('${encodeURIComponent(c)}')">✏️ עריכה</button></div>${b?`<div class="progress ${q>=100?"bad":q>=75?"warn":""}"><i style="width:${Math.min(q,100)}%"></i></div><div class="meta"><span>מסגרת ${fmt(b)}</span><span>${s>b?`חריגה ${fmt(s-b)}`:`נותר ${fmt(remaining)}`}</span></div>`:`<div class="meta"><span>ללא מסגרת מוגדרת</span><span></span></div>`}</div>`;
+   const details=items.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(x=>{
+     const sk=encodeURIComponent(stableTxKey(x));
+     const badge=(x.categoryOverridden||x.amountOverridden)?' · ידני':(x.fixedHealth?' · קבוע':'');
+     return `<div class="rc48-expense-tx">
+       <div class="tx-main"><b>${escapeHtml(x.note||x.category||"הוצאה")}</b><small>${(x.date||"").slice(0,10)}${x.source?` · ${escapeHtml(x.source)}`:""}${badge}</small></div>
+       <span class="tx-amt">${fmt(expenseAmount(x))}</span>
+       <button type="button" class="tx-edit-btn" onclick="event.stopPropagation();openTxEditor('${sk}')">ערוך</button>
+     </div>`;
+   }).join("");
+   return `<div class="cat rc48-expense-row"><div class="rc48-row-top"><span class="rc48-cat-name">${c}</span><b class="rc48-actual">${fmt(s)}</b></div><div class="rc48-actual-label">הוצאה בפועל${items.length?` · ${items.length} תנועות`:""}</div><div class="category-edit-wrap"><button class="category-edit-button" type="button" onclick="event.stopPropagation();editCategoryBudgetEncoded('${encodeURIComponent(c)}')">✏️ מסגרת</button></div>${b?`<div class="progress ${q>=100?"bad":q>=75?"warn":""}"><i style="width:${Math.min(q,100)}%"></i></div><div class="meta"><span>מסגרת ${fmt(b)}</span><span>${s>b?`חריגה ${fmt(s-b)}`:`נותר ${fmt(remaining)}`}</span></div>`:`<div class="meta"><span>ללא מסגרת מוגדרת</span><span></span></div>`}<div class="rc48-expense-details">${details}</div></div>`;
  }).join("") : '<div class="muted">אין הוצאות בפועל בחודש זה.</div>';
  const incomeGroups={};
  tx.filter(x=>(x.type||"").toLowerCase()==="income").forEach(x=>{
@@ -4906,11 +5386,14 @@ function render(){
    return `<div class="cat income-cat rc48-income-row"><div class="rc48-row-top"><span class="rc48-cat-name">${c}</span><b class="rc48-income-actual">${fmt(v)}</b></div><div class="rc48-actual-label">הכנסה בפועל${items.length>1?` · ${items.length} תנועות`:""}</div><div class="rc48-income-details">${details}</div></div>`;
  }).join("") : '<div class="muted">אין הכנסות בחודש זה.</div>';
  let legacy=tx.filter(x=>norm(x.category)=="הוצאות קיבוץ").reduce((a,x)=>a+expenseAmount(x),0);$("legacyBox").classList.toggle("hidden",!legacy);$("legacyAmount").textContent=legacy?`סה"כ בחודש: ${fmt(legacy)}`:"";
- $("tbody").innerHTML=tx.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>{const exp=(x.type||"").toLowerCase()==="expense",meta=exp?txMeta(x):{};let cls="—";if(exp){if(meta.split){const p=meta.split;cls=`מפוצלת: שוטף ${fmt(p.regular||0)}, תקופתי ${fmt(p.periodic||0)}, חריג ${fmt(p.exceptional||0)}`}else cls=classLabel(expenseClass(x));const sug=!meta.confirmed?suggestExpenseClass(x,tx):null;if(sug)cls+=` · 💡 מוצע: ${classLabel(sug.class)}`}const action=exp?`<button class="secondary tx-action" onclick="classifyTx('${encodeURIComponent(txKey(x))}')">סיווג</button>`:"";return `<tr><td>${x.date.slice(0,10)}</td><td>${budgetMonth(x)}</td><td>${exp?"הוצאה":"הכנסה"}</td><td>${x.category}</td><td>${x.note||""}</td><td>${fmt(Math.abs(x.amount))}</td><td>${cls}</td><td>${x.source}</td><td>${action}</td></tr>`}).join("")||'<tr><td colspan="9">אין תנועות בחודש זה</td></tr>';$("count").textContent=tx.length+" תנועות";
+ $("tbody").innerHTML=tx.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>{const exp=(x.type||"").toLowerCase()==="expense",meta=exp?txMeta(x):{};let cls="—";if(exp){if(meta.split){const p=meta.split;cls=`מפוצלת: שוטף ${fmt(p.regular||0)}, תקופתי ${fmt(p.periodic||0)}, חריג ${fmt(p.exceptional||0)}`}else cls=classLabel(expenseClass(x));const sug=!meta.confirmed?suggestExpenseClass(x,tx):null;if(sug)cls+=` · 💡 מוצע: ${classLabel(sug.class)}`}const sk=encodeURIComponent(stableTxKey(x));const action=`<div class="tx-action-row"><button class="secondary tx-action" type="button" onclick="openTxEditor('${sk}')">ערוך</button>${exp?`<button class="secondary tx-action" type="button" onclick="classifyTx('${encodeURIComponent(txKey(x))}')">סיווג</button>`:""}</div>`;return `<tr><td>${x.date.slice(0,10)}</td><td>${budgetMonth(x)}</td><td>${exp?"הוצאה":"הכנסה"}</td><td>${x.category}${x.categoryOverridden||x.amountOverridden?' <span class="pill">ידני</span>':x.fixedHealth?' <span class="fixed-health-badge">קבוע</span>':""}</td><td>${x.note||""}</td><td>${fmt(Math.abs(x.amount))}</td><td>${cls}</td><td>${x.source}</td><td>${action}</td></tr>`}).join("")||'<tr><td colspan="9">אין תנועות בחודש זה</td></tr>';$("count").textContent=tx.length+" תנועות";
  if(state.lastImport && $("importStatus"))$("importStatus").textContent=`ייבוא אחרון: ${state.lastImport.count} תנועות, ${state.lastImport.lo} עד ${state.lastImport.hi}`;
  updateUndoSpendeeButton();
  // RC43 final synchronization: one forecast engine, one end-of-month answer.
  renderRc41MonthEndForecast(m);
+ if(typeof window.__updateModernDashboard==="function"){
+   try{ window.__updateModernDashboard(); }catch(_){}
+ }
 }
 
 function buildAnnualYears(){
@@ -5090,19 +5573,42 @@ window.addEventListener("online",()=>{setCloudStatus("החיבור חזר — מ
 window.addEventListener("offline",()=>setCloudStatus("אין אינטרנט — אפשר להמשיך לעבוד; השינויים יסונכרנו כשהחיבור יחזור.","warn"));
 window.addEventListener("focus",()=>autoSyncState("focus"));
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")autoSyncState("visible")});
-function init(){ensureExceptionState();
-ensureV4State();
-ensureAugustKibbutzExpected();
-reconcileAugustKibbutzExpected();
-ensureKibbutzExpectedExpenses();
-reconcileKibbutzExpectedExpenses();
+function init(){
+ ensureExceptionState();
+ ensureV4State();
  if(!state.settings.lagRules) state.settings.lagRules=JSON.parse(JSON.stringify(DEFAULTS.lagRules));
  // Migration from earlier versions: Spendee records only the user's share of shared education expenses.
  if(state.settings.budgets && Number(state.settings.budgets["קיבוץ – חינוך"])===590) state.settings.budgets["קיבוץ – חינוך"]=295;
- save(false);
- buildMonths();buildAnnualYears();renderExpectedExpenses();showFinanceView("expenses");$("mdate").value=new Date().toISOString().slice(0,10);$("mcat").innerHTML=Object.keys(state.settings.budgets).map(x=>`<option>${x}</option>`).join("");render()}
-init()
-initCloudClient()
+ // Fast first paint: month list + main dashboard only.
+ buildMonths();
+ showFinanceView("expenses");
+ if($("mdate")) $("mdate").value=new Date().toISOString().slice(0,10);
+ if($("mcat")) $("mcat").innerHTML=Object.keys(state.settings.budgets||{}).map(x=>`<option>${x}</option>`).join("");
+ if(typeof render==="function") render();
+ if(typeof window.__updateModernDashboard==="function") window.__updateModernDashboard();
+
+ // Heavy expected/kibbutz reconciliation after first paint (does not block UI).
+ const heavy=function(){
+   try{
+     ensureAugustKibbutzExpected();
+     reconcileAugustKibbutzExpected();
+     ensureKibbutzExpectedExpenses();
+     reconcileKibbutzExpectedExpenses();
+     renderExpectedExpenses();
+     buildAnnualYears();
+     if(typeof render==="function") render();
+     if(typeof window.__updateModernDashboard==="function") window.__updateModernDashboard();
+   }catch(e){ console.error("deferred init", e); }
+ };
+ if(typeof requestIdleCallback==="function") requestIdleCallback(heavy,{timeout:1500});
+ else setTimeout(heavy, 120);
+
+ // End boot window so later patches stop stacking full re-renders.
+ setTimeout(function(){ if(typeof endAppBoot==="function") endAppBoot(); }, 700);
+}
+init();
+// Cloud client after first paint — network should not block UI.
+setTimeout(function(){ try{ initCloudClient(); }catch(e){ console.error(e); } }, 200);
 </script>
 
 <script id="v41-modern-dashboard-sync">
@@ -5155,15 +5661,11 @@ initCloudClient()
     }
   }
 
+  window.__updateModernDashboard = updateModernDashboard;
+  // Single update path: init()/render already refresh the modern dashboard.
+  // Keep one lightweight load hook in case init ran before this script.
   window.addEventListener("load",()=>{
-    mountForecast();
-    updateModernDashboard();
-    setInterval(updateModernDashboard,700);
-  });
-
-  document.addEventListener("DOMContentLoaded",()=>{
-    mountForecast();
-    updateModernDashboard();
+    if(typeof updateModernDashboard==="function") updateModernDashboard();
   });
 })();
 </script>
@@ -5639,7 +6141,7 @@ if ("serviceWorker" in navigator) {
  }
 
  function run(){updateMirrors();moveManualTool()}
- window.addEventListener("load",()=>setTimeout(run,450));
+ window.addEventListener("load",()=>{const go=()=>setTimeout(run,0); if(typeof requestIdleCallback==="function") requestIdleCallback(go,{timeout:2000}); else setTimeout(run,600);});
 })();
 </script>
 
@@ -5837,7 +6339,7 @@ if ("serviceWorker" in navigator) {
     timer=setTimeout(run,40);
   }
 
-  window.addEventListener("load",()=>setTimeout(run,450));
+  window.addEventListener("load",()=>{const go=()=>setTimeout(run,0); if(typeof requestIdleCallback==="function") requestIdleCallback(go,{timeout:2000}); else setTimeout(run,600);});
 })();
 </script>
 
@@ -5859,7 +6361,7 @@ if ("serviceWorker" in navigator) {
        collapses/expands. The old resize handler interpreted that as a layout
        refresh and closed user-opened accordions. User choice now wins. */
   }
-  window.addEventListener("load",()=>setTimeout(run,400));
+  window.addEventListener("load",()=>{ if(typeof requestIdleCallback==="function") requestIdleCallback(()=>run(),{timeout:2000}); else setTimeout(run,700); });
 })();
 </script>
 
@@ -6045,7 +6547,10 @@ if ("serviceWorker" in navigator) {
     renderTopChart();
   }
 
-  window.addEventListener("load",()=>setTimeout(refresh,650));
+  window.addEventListener("load",()=>{
+    // Do not rebuild the history chart on every app boot — only when needed.
+    // refresh still runs when the annual tab is opened (click handler below).
+  });
   document.addEventListener("click",e=>{
     if(e.target?.id==="annualTab") setTimeout(refresh,80);
     if(e.target?.id==="rc35ExpensesBtn") rc35SetChartMode("expenses");
@@ -6096,7 +6601,7 @@ if ("serviceWorker" in navigator) {
   }
 
   window.rc45CleanSync=rc45CleanSync;
-  window.addEventListener("load",()=>{rc45CleanSync();setTimeout(rc45CleanSync,400);setTimeout(rc45CleanSync,1200);});
+  window.addEventListener("load",()=>{setTimeout(rc45CleanSync,300);});
 })();
 </script>
 
@@ -6109,14 +6614,14 @@ if ("serviceWorker" in navigator) {
     clearTimeout(mirrorTimer);
     mirrorTimer=setTimeout(()=>{
       if(typeof updateMirrors==="function") updateMirrors();
-    },30);
+    },120);
   }
 
   function queueVisual(){
     clearTimeout(visualTimer);
     visualTimer=setTimeout(()=>{
       if(typeof scheduleRun==="function") scheduleRun();
-    },30);
+    },120);
   }
 
   function queueSync(){
@@ -6158,12 +6663,13 @@ if ("serviceWorker" in navigator) {
       }
     });
 
+    // Observe only structural changes (not every attribute/class tweak during render).
     if(budget){
       observer.observe(budget,{
         subtree:true,
         childList:true,
-        characterData:true,
-        attributes:true
+        characterData:false,
+        attributes:false
       });
     }
 
@@ -6171,16 +6677,20 @@ if ("serviceWorker" in navigator) {
       observer.observe(settings,{
         subtree:true,
         childList:true,
-        characterData:true,
-        attributes:true
+        characterData:false,
+        attributes:false
       });
     }
   }
 
+  // Delay observer until after first paint so initial render is not re-entered.
+  function startObserverLater(){
+    setTimeout(startUnifiedObserver, 900);
+  }
   if(document.readyState==="loading"){
-    document.addEventListener("DOMContentLoaded",startUnifiedObserver,{once:true});
+    document.addEventListener("DOMContentLoaded",startObserverLater,{once:true});
   }else{
-    startUnifiedObserver();
+    startObserverLater();
   }
 })();
 </script>
@@ -6303,29 +6813,9 @@ if ("serviceWorker" in navigator) {
 (function(){
   // Persisted amount corrections sit above raw Spendee data.
   state.spendeeCorrections=state.spendeeCorrections||{};
+  // correctionForRawTx lives in core (with category-agnostic fallback).
 
-  function correctionForRawTx(tx){
-    return state.spendeeCorrections?.[txKey(tx)]||null;
-  }
-  function effectiveSpendeeAmount(tx){
-    const c=correctionForRawTx(tx);
-    return c ? Number(c.correctedAmount) : expenseAmount(tx);
-  }
-
-  // Preserve the existing Kibbutz de-duplication logic, then overlay approved credit-card corrections.
-  const baseAllTx=allTx;
-  allTx=function(){
-    return baseAllTx().map(x=>{
-      if(x?.source!=="Spendee")return x;
-      const c=correctionForRawTx(x);
-      if(!c)return x;
-      const clone={...x};
-      clone.originalSpendeeAmount=expenseAmount(x);
-      clone.amount=(x.amount<0?-1:1)*Math.abs(Number(c.correctedAmount));
-      clone.creditCardCorrected=true;
-      return clone;
-    });
-  };
+  // allTx amount corrections consolidated into core allTx() — no re-wrap here.
 
   // Include a few audit-only labels beyond budget categories.
   const baseAuditCategoryOptions=auditCategoryOptions;
@@ -6359,7 +6849,7 @@ if ("serviceWorker" in navigator) {
     if(file.name.toLowerCase().endsWith(".csv")){
       sources=[{name:"CSV",matrix:parseCSV(await file.text())}];
     }else{
-      if(!window.XLSX)throw Error("ספריית XLSX לא נטענה. ודא שיש חיבור לאינטרנט ונסה שוב.");
+      if(!window.XLSX){if(typeof ensureXlsxLoaded==="function"){await ensureXlsxLoaded();}if(!window.XLSX)throw Error("ספריית XLSX לא נטענה. ודא שיש חיבור לאינטרנט ונסה שוב.");}
       const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
       sources=wb.SheetNames.map(name=>({
         name,
@@ -6667,10 +7157,13 @@ if ("serviceWorker" in navigator) {
     state.txMeta=state.txMeta||{};
     state.spendeeCorrections=state.spendeeCorrections||{};
     state.creditAuditRules=state.creditAuditRules||{};
+    state.creditMatchRules=state.creditMatchRules||{};
+    state.categoryOverrides=state.categoryOverrides||{};
+    state.amountOverrides=state.amountOverrides||{};
     if(!Number.isFinite(Number(state.settings.safetyBuffer))) state.settings.safetyBuffer=0;
   };
   ensureV4State();
-  setTimeout(()=>{try{render();renderCreditAudit()}catch(e){}},0);
+  // credit audit renders on settings page open only — skip boot double-render
 })();
 </script>
 
@@ -7218,25 +7711,9 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
  function alpha15NoCategoryIdentity(tx){
    return [tx?.date||"",norm(tx?.type),Number(tx?.amount||0).toFixed(2),norm(tx?.wallet),norm(tx?.note)].join("|");
  }
- const oldCorrectionForRawTx=correctionForRawTx;
- correctionForRawTx=function(tx){
-   const exact=oldCorrectionForRawTx(tx);if(exact)return exact;
-   const id=alpha15NoCategoryIdentity(tx);
-   for(const [key,c] of Object.entries(state.spendeeCorrections||{})){
-     const p=key.split("|");
-     if(p.length>=6){
-       const oldId=[p[0],p[1],p[3],p[4],p.slice(5).join("|")].join("|");
-       if(oldId===id)return c;
-     }
-   }
-   return null;
- };
+ // correctionForRawTx already consolidated in core with no-category fallback.
 
- const prevShowPage=showPage;
- showPage=function(name){prevShowPage(name);if(name==="settings")setTimeout(renderSpendeeCategoryMap,0)};
- const prevRender=render;
- render=function(){prevRender();setTimeout(renderSpendeeCategoryMap,0)};
- setTimeout(renderSpendeeCategoryMap,0);
+ // Category-map panel removed; do not wrap render/showPage with extra timers.
 })();
 </script>
 
@@ -7395,241 +7872,82 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
 
 <script id="alpha17-fixed-health-category-js">
 (function(){
-  const FIXED_HEALTH_CATEGORY="קופת חולים - קבוע";
-  const FIXED_HEALTH_START="2025-09-01";
-
-  function a17Text(tx){
-    return normAuditText([
-      tx?.spendeeCategory,tx?.category,tx?.note,tx?.merchant,tx?.description
-    ].filter(Boolean).join(" "));
-  }
-  function a17HealthLike(tx){
-    const t=a17Text(tx);
-    return [
-      "קופת חולים","כללית","מושלם","הראל","סיעוד","בריאות",
-      "תרופות ורופאים","רפואה"
-    ].some(k=>t.includes(normAuditText(k)));
-  }
-  function a17FixedHealth(tx){
-    if(!tx)return false;
-    const d=(tx.date||"").slice(0,10);
-    if(d && d<FIXED_HEALTH_START)return false;
-    const t=a17Text(tx);
-    const amt=Math.abs(Number(tx.amount||0));
-
-    // Strong merchant/description evidence.
-    if(t.includes("כללית") && (t.includes("מושלם") || (amt>=61.5&&amt<=65.5)))return true;
-    if(t.includes("הראל") && (t.includes("סיעוד") || (amt>=127&&amt<=132)))return true;
-
-    // Legacy imports lost the original Spendee category/name. For those rows,
-    // use the recurring amount pattern only inside health-like categories.
-    if(a17HealthLike(tx)){
-      if(amt>=61.5&&amt<=65.5)return true;
-      if(amt>=127&&amt<=132)return true;
-    }
-    return false;
-  }
-
-  function a17EffectiveCategory(tx){
-    if(a17FixedHealth(tx))return FIXED_HEALTH_CATEGORY;
-    return mapCat(tx?.spendeeCategory||tx?.category||"");
-  }
-
-  // Add fixed health category to audit classification dropdown.
-  const prevAuditCategoryOptions=auditCategoryOptions;
-  auditCategoryOptions=function(selected){
-    const extras=[
-      FIXED_HEALTH_CATEGORY,"קופת חולים","ביטוחים - אילן","ביטוחים - ילדים",
-      "ביטוחי רכב","העברת כספים","משיכת מזומן"
+  // Fixed-health detection, mapCat aliasing and insurance health-bucket routing
+  // are consolidated in the core runtime. This stub only keeps audit dropdown
+  // extras and a safe refresh.
+  const FIXED_HEALTH_CATEGORY = window.fixedHealthCategoryName || "קופת חולים - קבוע";
+  const prevAuditCategoryOptions = auditCategoryOptions;
+  auditCategoryOptions = function(selected){
+    const extras = [
+      FIXED_HEALTH_CATEGORY, "קופת חולים", "ביטוחים - אילן", "ביטוחים - ילדים",
+      "ביטוחי רכב", "העברת כספים", "משיכת מזומן"
     ];
-    const budgets=Object.keys(state.settings?.budgets||{});
-    const cats=[...new Set([...budgets,...extras])];
-    return `<option value="">ללא סיווג</option>`+
-      cats.map(c=>`<option value="${escapeHtml(c)}" ${c===selected?"selected":""}>${escapeHtml(c)}</option>`).join("");
+    const budgets = Object.keys(state.settings?.budgets || {});
+    const cats = [...new Set([...budgets, ...extras])];
+    return `<option value="">ללא סיווג</option>` +
+      cats.map(c => `<option value="${escapeHtml(c)}" ${c===selected?"selected":""}>${escapeHtml(c)}</option>`).join("");
   };
-
-  // Insurance tab: fixed health expenses belong in the health-fund bucket.
-  const prevInsuranceBucket=insuranceBucket;
-  insuranceBucket=function(x){
-    if(a17FixedHealth(x))return "health";
-    return prevInsuranceBucket(x);
-  };
-
-  // Insurance detail title/name keeps the fixed category visible.
-  const prevInsuranceDetailItemName=insuranceDetailItemName;
-  insuranceDetailItemName=function(x,bucket){
-    if(bucket==="health" && a17FixedHealth(x)){
-      const t=a17Text(x);
-      if(t.includes("הראל"))return "הראל סיעוד";
-      if(t.includes("כללית"))return "כללית מושלם";
-      const amt=Math.abs(Number(x.amount||0));
-      if(amt>=127&&amt<=132)return "הראל סיעוד";
-      if(amt>=61.5&&amt<=65.5)return "כללית מושלם";
-      return FIXED_HEALTH_CATEGORY;
-    }
-    return prevInsuranceDetailItemName(x,bucket);
-  };
-
-  // Credit reconciliation searches the virtual fixed-health category, even for legacy rows
-  // whose stored app category is still "תרופות ורופאים".
-  function a17SearchText(tx){
-    return normAuditText([
-      tx?.spendeeCategory,tx?.category,mapCat(tx?.category||""),
-      a17EffectiveCategory(tx),tx?.note,tx?.wallet
-    ].filter(Boolean).join(" "));
-  }
-  function a17Terms(category){
-    const c=normAuditText(category||"");
-    if(c===normAuditText(FIXED_HEALTH_CATEGORY) || c.includes("קופת חולים")){
-      return ["קופת חולים","קופת חולים קבוע","כללית","מושלם","הראל","סיעוד","בריאות","תרופות ורופאים","רפואה"]
-        .map(normAuditText);
-    }
-    return [c].filter(Boolean);
-  }
-  function a17Related(tx,category){
-    if(normAuditText(category||"").includes("קופת חולים") && a17FixedHealth(tx))return true;
-    const text=a17SearchText(tx);
-    return a17Terms(category).some(t=>text.includes(t)||t.includes(text));
-  }
-  function a17Score(row,tx,q){
-    q=normAuditText(q||"");
-    const text=a17SearchText(tx);
-    const dd=auditDayDiff((tx?.date||"").slice(0,10),row?.date||"");
-    const ad=Math.abs(expenseAmount(tx)-Number(row?.amount||0));
-    let score=(Number.isFinite(dd)?dd:999)*2+Math.min(ad,500)*.25;
-    if(q){if(text.includes(q))score-=100;else score+=150}
-    if(row?.auditCategory&&a17Related(tx,row.auditCategory))score-=80;
-    return score;
-  }
-  function a17Pool(idx,q="",allMode=false){
-    const row=state.creditCardAudit?.rows?.[idx];if(!row)return[];
-    q=normAuditText(q||"");
-    const every=(state.spendee||[]).filter(x=>(x.type||"").toLowerCase()==="expense");
-    let arr=every;
-    if(q)arr=every.filter(x=>a17SearchText(x).includes(q));
-    else if(!allMode&&row.auditCategory){
-      const rel=every.filter(x=>a17Related(x,row.auditCategory));
-      arr=rel.length?rel:every;
-    }
-    return arr.map(tx=>({
-      tx,related:!!row.auditCategory&&a17Related(tx,row.auditCategory),score:a17Score(row,tx,q)
-    })).sort((a,b)=>a.related!==b.related?(a.related?-1:1):a.score-b.score).slice(0,250);
-  }
-
-  creditCandidateRowsHtml=function(idx,q="",allMode=false){
-    const row=state.creditCardAudit?.rows?.[idx];if(!row)return"";
-    const arr=a17Pool(idx,q,allMode);
-    if(!arr.length)return'<div class="muted tiny">לא נמצאו עסקאות Spendee.</div>';
-    return `<div class="muted tiny" style="margin-bottom:6px">נמצאו ${arr.length} עסקאות להצגה</div>`+
-      arr.map(({tx,related})=>{
-        const gap=expenseAmount(tx)-Number(row.amount||0),enc=encodeURIComponent(txKey(tx));
-        const src=norm(tx.spendeeCategory||tx.category||"");
-        const fixed=a17FixedHealth(tx);
-        return `<div class="credit-candidate ${related?"related":""}">
-          <div class="candidate-main">
-            <div class="candidate-title">${escapeHtml(tx.note||src||"ללא תיאור")}</div>
-            <div class="candidate-meta">${(tx.date||"").slice(0,10)} · ${fmt(expenseAmount(tx))}</div>
-            <div class="spendee-source-line">קטגוריה: <b>${escapeHtml(src||"—")}</b></div>
-            ${fixed?`<span class="fixed-health-badge">${FIXED_HEALTH_CATEGORY}</span>`:""}
-            ${related?`<span class="credit-related-badge">קשור לסיווג ${escapeHtml(row.auditCategory||"")}</span>`:""}
-            <div class="candidate-gap">פער מול האשראי: ${gap>=0?"+":""}${fmt(gap)}</div>
-          </div>
-          <button type="button" onclick="chooseCreditCandidate(${idx},'${enc}')">בחר</button>
-        </div>`;
-      }).join("");
-  };
-
-  creditManualCandidates=(idx,q="",allMode=false)=>a17Pool(idx,q,allMode).map(x=>x.tx);
-  window.showAllCreditCandidates=function(idx){const b=$(`creditFinderResults_${idx}`);if(b)b.innerHTML=creditCandidateRowsHtml(idx,"",true)};
-  window.showCategoryCreditCandidates=function(idx){const b=$(`creditFinderResults_${idx}`);if(b)b.innerHTML=creditCandidateRowsHtml(idx,"",false)};
-  filterCreditFinder=function(idx,v){const b=$(`creditFinderResults_${idx}`);if(b)b.innerHTML=creditCandidateRowsHtml(idx,v,false)};
-  toggleCreditFinder=function(idx){
-    const el=$(`creditFinder_${idx}`);if(!el)return;
-    el.classList.toggle("hidden");
-    if(!el.classList.contains("hidden")){
-      const b=$(`creditFinderResults_${idx}`);
-      if(b)b.innerHTML=creditCandidateRowsHtml(idx,"",false);
-    }
-  };
-
-  // Treat the fixed-health category as a real app category in summaries/history without
-  // rewriting raw Spendee rows. This keeps imports safe and reversible.
-  const prevMapCat=mapCat;
-  mapCat=function(c){
-    const n=norm(c);
-    if(n==="קופת חולים – קבוע"||n==="קופת חולים - קבוע")return FIXED_HEALTH_CATEGORY;
-    return prevMapCat(c);
-  };
-
-  // Expose helpers for debugging/next versions.
-  window.isFixedHealthTransaction=a17FixedHealth;
-  window.fixedHealthCategoryName=FIXED_HEALTH_CATEGORY;
-
-  setTimeout(()=>{try{render();renderInsurancePage()}catch(e){}},0);
+  // startup render consolidated — skip duplicate boot render
 })();
 </script>
 
 <script id="alpha19-fixed-health-real-category">
 (function(){
-  const CAT="קופת חולים - קבוע";
-
-  // Reuse the precise Alpha 18 detector. This final layer turns the virtual
-  // classification into the category seen by every analysis screen.
-  function a19IsFixedHealth(tx){
-    return typeof window.isFixedHealthTransaction==="function" && window.isFixedHealthTransaction(tx);
-  }
-
-  // All analytical views (month, history, category breakdowns, insurance etc.)
-  // receive a cloned row with the fixed-health category, while the raw Spendee
-  // record stays untouched and preserves its original source category.
-  const prevAllTx=allTx;
-  allTx=function(){
-    return prevAllTx().map(tx=>{
-      if(!tx || (tx.type||"").toLowerCase()!=="expense" || !a19IsFixedHealth(tx))return tx;
-      return {
-        ...tx,
-        originalCategory:tx.originalCategory||tx.category,
-        spendeeCategory:tx.spendeeCategory||tx.originalCategory||tx.category,
-        category:CAT,
-        fixedHealth:true
-      };
-    });
-  };
-
-  // Keep mapCat stable and explicit for both dash variants and old Spendee label.
-  const prevMapCat=mapCat;
-  mapCat=function(c){
-    const n=norm(c);
-    if(n==="קופת חולים - קבוע" || n==="קופת חולים – קבוע")return CAT;
-    return prevMapCat(c);
-  };
-
-  // Fixed-health rows should always appear in the health bucket.
-  const prevInsuranceBucket=insuranceBucket;
-  insuranceBucket=function(x){
-    if(x?.fixedHealth || a19IsFixedHealth(x))return "health";
-    return prevInsuranceBucket(x);
-  };
-
-  // Make the category available as a normal budget/history category even if
-  // there is no explicit budget limit configured for it.
-  const prevAuditCategoryOptions=auditCategoryOptions;
-  auditCategoryOptions=function(selected){
-    const html=prevAuditCategoryOptions(selected);
-    if(html.includes(`value="${CAT}"`))return html;
-    return html.replace('<option value="">ללא סיווג</option>',
-      `<option value="">ללא סיווג</option><option value="${CAT}" ${selected===CAT?"selected":""}>${CAT}</option>`);
-  };
-
-  // Refresh after replacing the transaction/category layer.
-  setTimeout(()=>{
-    try{
-      buildMonths();
-      render();
-      renderInsurancePage();
-    }catch(e){console.error("Alpha19 fixed health refresh",e)}
-  },0);
+  // Fixed-health category rewrite is consolidated into core allTx().
+  // Keep a lightweight refresh only.
+  // startup render consolidated — skip duplicate boot render
 })();
 </script>
+
+
+<script id="alpha20-insurance-synthetic-row-fix">
+(function(){
+  // Synthetic Overview-completion exclusion is consolidated into core insuranceBucket/allTx.
+  // Keep defensive detail-list filter if the helper exists.
+  if(typeof insurancePeriodTransactions === "function" && typeof isInsuranceSyntheticCompletion === "function"){
+    const prev = insurancePeriodTransactions;
+    insurancePeriodTransactions = function(bucket){
+      return prev(bucket).filter(x => !isInsuranceSyntheticCompletion(x));
+    };
+  }
+  // startup render consolidated — skip duplicate boot render
+})();
+</script>
+
+
+<script id="alpha21-historical-summary-dedup">
+(function(){
+  // Historical Overview-completion de-duplication is consolidated into core allTx().
+  // startup render consolidated — skip duplicate boot render
+})();
+</script>
+
+
+<div id="txEditBackdrop" class="tx-edit-backdrop hidden" onclick="if(event.target===this)closeTxEditor()">
+  <div class="tx-edit-modal" role="dialog" aria-modal="true" aria-labelledby="txEditTitle">
+    <h3 id="txEditTitle">עריכת עסקה</h3>
+    <div id="txEditSub" class="tx-edit-sub"></div>
+    <div class="tx-edit-field">
+      <label for="txEditCategory">קטגוריה</label>
+      <select id="txEditCategory"></select>
+    </div>
+    <div class="tx-edit-field">
+      <label for="txEditAmount">סכום (₪)</label>
+      <input id="txEditAmount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00">
+    </div>
+    <div class="tx-edit-field" id="txEditNoteWrap">
+      <label for="txEditNote">הערה / תיאור</label>
+      <input id="txEditNote" type="text" maxlength="200" placeholder="אופציונלי">
+    </div>
+    <div class="tx-edit-actions">
+      <button type="button" onclick="saveTxEditor()">שמור</button>
+      <button type="button" class="secondary" onclick="closeTxEditor()">ביטול</button>
+    </div>
+    <div class="tx-edit-actions">
+      <button type="button" class="secondary" onclick="clearTxEdits()">בטל עריכות ידניות (סיווג+סכום)</button>
+    </div>
+    <div class="tx-edit-note">השינוי נשמר מקומית (ובענן אם מחוברים). בעסקאות Spendee הסיווג והסכום המתוקנים נשמרים בנפרד ולא נמחקים בייבוא מחדש.</div>
+  </div>
+</div>
 
 </body></html>
