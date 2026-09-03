@@ -1744,12 +1744,41 @@ header{display:none!important}
 .modern-card.forecast .icon{background:#eef8f2}
 
 #forecastPage{padding-top:16px}
+
+.income-lookback-card{
+  background:#fff;border:1px solid #e5e1f2;border-radius:20px;padding:14px 14px 10px;
+  margin:0 0 12px;box-shadow:0 4px 14px rgba(61,52,91,.05)
+}
+.income-lookback-card h3{margin:0 0 4px;font-size:17px;font-weight:900}
+.income-lookback-card .sub{color:#6b7385;font-size:12px;margin-bottom:10px;line-height:1.45}
+.income-lookback-switch{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.income-lookback-switch button{
+  flex:1;min-width:72px;border:1px solid #dfe3ec;background:#f5f6fa;color:#3f4658;
+  border-radius:12px;padding:10px 8px;font-weight:850;font-size:14px;cursor:pointer
+}
+.income-lookback-switch button.active{
+  background:linear-gradient(100deg,#704bb7,#51269a);color:#fff;border-color:transparent
+}
+.income-month-picks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.income-month-pick{
+  display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border:1px solid #e7e9f0;
+  border-radius:12px;background:#fafbfe;font-size:13px
+}
+.income-month-pick.excluded{opacity:.55;background:#f3f4f7}
+.income-month-pick input{margin-top:3px;accent-color:#5b4b8a}
+.income-month-pick .pick-main{min-width:0}
+.income-month-pick b{display:block;font-size:13px}
+.income-month-pick small{display:block;color:#6b7385;margin-top:2px;font-size:11px;line-height:1.35}
+.income-lookback-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.income-lookback-actions button{flex:1;min-width:120px;font-size:13px}
+@media(max-width:520px){.income-month-picks{grid-template-columns:1fr}}
 #forecastPage .forecast-page-head{
   padding:18px 6px 8px;
   font-size:25px;font-weight:900;color:var(--app-text)
 }
 #forecastPage #rc50ForecastBreakdown{
   display:block!important;
+  visibility:visible!important;
   border:1px solid #e5e1f2!important;
   border-radius:24px!important;
   box-shadow:var(--app-shadow)!important;
@@ -2468,7 +2497,22 @@ completion is excluded from all analytical totals, preventing double-counting.
 
 
 <div id="forecastPage" class="page">
-  <div class="forecast-page-head">תחזית</div>
+  <div class="forecast-page-head">תחזית לסוף החודש</div>
+  <div class="muted tiny" style="margin:0 6px 10px">פירוט מלא של החישוב: הכנסות, הוצאות בפועל, הוצאות צפויות וחיסכון.</div>
+  <div class="income-lookback-card" id="incomeLookbackCard">
+    <h3>⚙️ הגדרת ממוצע הכנסות</h3>
+    <div class="sub">בחרו כמה חודשים אחורה לחשב, וסמנו ידנית אילו חודשים ייכללו בממוצע (למשל להוציא חודש שחסר בו שכר ק.ש.ר/עירייה).</div>
+    <div class="income-lookback-switch" role="group" aria-label="טווח ממוצע">
+      <button type="button" id="lookbackBtn3" onclick="setIncomeLookbackMonths(3)">3 חודשים</button>
+      <button type="button" id="lookbackBtn6" onclick="setIncomeLookbackMonths(6)">6 חודשים</button>
+      <button type="button" id="lookbackBtn12" onclick="setIncomeLookbackMonths(12)">12 חודשים</button>
+    </div>
+    <div id="incomeMonthPicks" class="income-month-picks"></div>
+    <div class="income-lookback-actions">
+      <button type="button" class="secondary" onclick="resetIncomeMonthExclusions()">סמן הכול</button>
+      <button type="button" class="secondary" onclick="excludeIncompleteLagMonths()">החרג חודשים חסרים (ק.ש.ר/עירייה)</button>
+    </div>
+  </div>
   <div id="forecastPageMount"></div>
 </div>
 
@@ -2722,8 +2766,8 @@ completion is excluded from all analytical totals, preventing double-counting.
 </div>
 <div class="card"><b>גיבוי ושחזור</b><div class="muted tiny" style="margin:6px 0 10px">השחזור תומך גם בגיבויים מגרסאות V3 קודמות.</div><div class="row"><button class="secondary" onclick="exportBackup()">גיבוי המערכת</button><label class="filebtn secondary">שחזור גיבוי<input id="backupFile" type="file" accept=".json,application/json"></label></div></div>
  <div class="card"><div class="row between"><b>כללי שיוך לחודש תקציבי</b></div><div class="tiny muted" style="margin-top:6px">המערכת משתמשת בתאריך שמופיע ב-Spendee כחודש התקציבי. אין יותר העברה אוטומטית של הכנסות או הוצאות לחודש קודם.</div><div id="pendingInfo" class="tiny" style="margin-top:8px"></div></div>
-</div>
 <div class="muted tiny" style="text-align:center;margin:18px">הנתונים נשמרים מקומית בדפדפן, וכאשר הסנכרון מחובר גם בענן Supabase. קובץ ה־CSV עצמו אינו נשלח לשרת; רק נתוני התקציב שנקלטו נשמרים בענן.</div>
+</div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script>
@@ -3448,8 +3492,14 @@ function showPage(name){
  if(name==="annual") renderAnnual();
  if(name==="insurance"){insuranceYearOptions();renderInsurancePage();}
  if(name==="forecast"){
+   if(typeof window.mountForecast==="function") window.mountForecast();
    const box=$("rc50ForecastBreakdown");
-   if(box){ box.hidden=false; }
+   if(box){ box.hidden=false; box.style.display="block"; }
+   try{
+     if(typeof renderIncomeLookbackControls==="function") renderIncomeLookbackControls($("month")?.value||localCurrentMonthKey());
+     if(typeof render==="function") render();
+     if(typeof window.__updateModernDashboard==="function") window.__updateModernDashboard();
+   }catch(e){}
  }
 }
 
@@ -3997,6 +4047,9 @@ function ensureV4State(){
  state.categoryOverrides=state.categoryOverrides||{};
  state.amountOverrides=state.amountOverrides||{};
  if(!Number.isFinite(Number(state.settings.safetyBuffer))) state.settings.safetyBuffer=0;
+ const lb=Number(state.settings.incomeLookbackMonths);
+ state.settings.incomeLookbackMonths = (lb===3||lb===6||lb===12) ? lb : 6;
+ if(!Array.isArray(state.settings.incomeExcludedMonths)) state.settings.incomeExcludedMonths=[];
 }
 
 const KIBBUTZ_FORECAST_START="2026-09";
@@ -5005,34 +5058,226 @@ function v4Analysis(m,tx,bud,income,spendForBudget,savings,expected,days,isCur){
  return {regular,periodic,exceptional,pendingTotal,available,availableRaw,availableBeforeSafety,plannedIncome,savingsReserve,safetyBuffer,forecastEnd:canonical.projectedBalance};
 }
 
-function rc50IncomeForecastForMonth(monthKey){
- const lookback=6;
- const months=[];
- for(let i=1;i<=lookback;i++)months.push(monthKeyShiftKey(monthKey,-i));
- const txAll=allTx();
- const current=txAll.filter(x=>budgetMonth(x)===monthKey && (x.type||"").toLowerCase()==="income");
- const currentByCat={};
- current.forEach(x=>{const c=norm(x.category)||"הכנסה";currentByCat[c]=(currentByCat[c]||0)+incomeAmount(x);});
- const cats=new Set(Object.keys(currentByCat));
- txAll.forEach(x=>{if((x.type||"").toLowerCase()==="income"&&months.includes(budgetMonth(x)))cats.add(norm(x.category)||"הכנסה");});
- const rows=[];
- cats.forEach(cat=>{
-   const vals=months.map(m=>txAll.filter(x=>budgetMonth(x)===m&&(x.type||"").toLowerCase()==="income"&&(norm(x.category)||"הכנסה")===cat).reduce((a,x)=>a+incomeAmount(x),0));
-   const seen=vals.filter(v=>v>0).length;
-   const avg=vals.reduce((a,b)=>a+b,0)/lookback; // true six-month monthly average, including zero months
-   const actual=Number(currentByCat[cat]||0);
-   const irregular=/החזר|מתנה|מכירה|חד.?פעמ|זיכוי/i.test(cat);
-   const recurring=seen>=3 && !irregular;
-   const expected=recurring?(actual>0?actual:avg):actual;
-   if(expected>0)rows.push({cat,actual,avg,seen,recurring,expected});
- });
- const expected=rows.reduce((a,r)=>a+r.expected,0);
- const actual=current.reduce((a,x)=>a+incomeAmount(x),0);
- // Fallback only when there is not yet enough usable income history.
- const usableHistory=rows.some(r=>r.recurring);
- const fallback=Math.max(Number(state.settings.incomeTarget||0),actual);
- return {expected:usableHistory?Math.max(expected,actual):fallback,actual,rows,usableHistory};
+function isLagIncomeCategory(cat){
+  const rules=((state.settings&&state.settings.lagRules&&state.settings.lagRules.incomePrevMonth)
+    || (DEFAULTS.lagRules&&DEFAULTS.lagRules.incomePrevMonth)
+    || ["עיריית חיפה","ק.ש.ר"]);
+  const n=norm(cat||"");
+  if(!n) return false;
+  return rules.some(r=>{
+    const rr=norm(r);
+    return n===rr || n.includes(rr) || rr.includes(n);
+  });
 }
+
+function incomeInCalendarMonthForCat(txAll, calendarMonthKey, cat){
+  const c=norm(cat)||"הכנסה";
+  return (txAll||[])
+    .filter(x=>budgetMonth(x)===calendarMonthKey
+      && (x.type||"").toLowerCase()==="income"
+      && (norm(x.category)||"הכנסה")===c)
+    .reduce((a,x)=>a+incomeAmount(x),0);
+}
+
+// Lag income (עיריית חיפה / ק.ש.ר): salary for budget-month M usually appears in Spendee in month M+1.
+// Attribute that payment back to budget month M so August is not "filled" with estimates while the
+// money is still missing, and so September does not treat August's late payment as September salary.
+function lagAwareIncomeForBudgetMonth(txAll, budgetMonthKey, cat){
+  if(!isLagIncomeCategory(cat)){
+    return incomeInCalendarMonthForCat(txAll, budgetMonthKey, cat);
+  }
+  const nextKey=monthKeyShiftKey(budgetMonthKey, 1);
+  const inNext=incomeInCalendarMonthForCat(txAll, nextKey, cat);
+  if(inNext>0) return inNext;
+  // Fallback: some imports already use the correct budget month date.
+  return incomeInCalendarMonthForCat(txAll, budgetMonthKey, cat);
+}
+
+function getIncomeLookbackMonths(){
+  ensureV4State();
+  const n=Number(state.settings.incomeLookbackMonths);
+  return (n===3||n===6||n===12) ? n : 6;
+}
+function getIncomeExcludedMonthsSet(){
+  ensureV4State();
+  return new Set((state.settings.incomeExcludedMonths||[]).map(String));
+}
+function incomeLookbackCandidateMonths(monthKey){
+  const lookback=getIncomeLookbackMonths();
+  const months=[];
+  for(let i=1;i<=lookback;i++) months.push(monthKeyShiftKey(monthKey,-i));
+  return months;
+}
+function incomeLookbackActiveMonths(monthKey){
+  const excluded=getIncomeExcludedMonthsSet();
+  return incomeLookbackCandidateMonths(monthKey).filter(m=>!excluded.has(m));
+}
+function monthLabelHe(monthKey){
+  try{
+    return new Intl.DateTimeFormat("he-IL",{month:"long",year:"numeric"}).format(new Date(monthKey+"-01T12:00:00"));
+  }catch(_){ return monthKey; }
+}
+function lagIncomeCompleteness(txAll, budgetMonthKey){
+  // For a history month, how complete are lag salaries (KSR / Haifa)?
+  const rules=((state.settings&&state.settings.lagRules&&state.settings.lagRules.incomePrevMonth)
+    || (DEFAULTS.lagRules&&DEFAULTS.lagRules.incomePrevMonth)
+    || ["עיריית חיפה","ק.ש.ר"]);
+  let present=0, total=0;
+  rules.forEach(r=>{
+    total++;
+    if(lagAwareIncomeForBudgetMonth(txAll, budgetMonthKey, r)>0) present++;
+  });
+  return {present, total, complete: total>0 && present===total};
+}
+
+function rc50IncomeForecastForMonth(monthKey){
+  const candidates=incomeLookbackCandidateMonths(monthKey);
+  const months=incomeLookbackActiveMonths(monthKey);
+  const lookbackUsed=Math.max(1, months.length);
+  const txAll=allTx();
+  const currentMonthKey=localCurrentMonthKey();
+  const isCurrent=(monthKey===currentMonthKey);
+
+  const cats=new Set();
+  const scanMonths=new Set([...candidates, monthKey]);
+  candidates.forEach(m=>{
+    scanMonths.add(monthKeyShiftKey(m,1)); // lag payments
+  });
+  txAll.forEach(x=>{
+    if((x.type||"").toLowerCase()!=="income") return;
+    if(scanMonths.has(budgetMonth(x))) cats.add(norm(x.category)||"הכנסה");
+  });
+
+  const rows=[];
+  cats.forEach(cat=>{
+    const lag=isLagIncomeCategory(cat);
+    const vals=months.map(m=>lagAwareIncomeForBudgetMonth(txAll, m, cat));
+    const seen=vals.filter(v=>v>0).length;
+    const avg=vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+    const actual=lagAwareIncomeForBudgetMonth(txAll, monthKey, cat);
+    const irregular=/החזר|מתנה|מכירה|חד.?פעמ|זיכוי/i.test(cat);
+    // Recurring threshold scales with selected window
+    const minSeen=Math.max(2, Math.ceil(lookbackUsed*0.5));
+    const recurring=seen>=minSeen && !irregular;
+
+    let expected;
+    if(lag){
+      if(isCurrent){
+        expected = actual>0 ? actual : (recurring ? avg : 0);
+      }else{
+        expected = actual;
+      }
+    }else if(recurring){
+      expected = actual>0 ? actual : (isCurrent ? avg : actual);
+    }else{
+      expected = actual;
+    }
+
+    if(expected>0 || actual>0){
+      rows.push({cat,actual,avg,seen,recurring,expected,lag,monthsUsed:months.slice()});
+    }
+  });
+
+  const expected=rows.reduce((a,r)=>a+r.expected,0);
+  const actualCalendar=txAll
+    .filter(x=>budgetMonth(x)===monthKey && (x.type||"").toLowerCase()==="income")
+    .reduce((a,x)=>a+incomeAmount(x),0);
+
+  const usableHistory=rows.some(r=>r.recurring || (r.lag && r.seen>=2));
+  const fallback=Math.max(Number(state.settings.incomeTarget||0), actualCalendar);
+  const total=isCurrent
+    ? (usableHistory ? Math.max(expected, actualCalendar) : fallback)
+    : rows.reduce((a,r)=>a+r.expected,0) || actualCalendar;
+
+  return {
+    expected:total,
+    actual:actualCalendar,
+    rows,
+    usableHistory,
+    lookback:getIncomeLookbackMonths(),
+    candidates,
+    monthsUsed:months,
+    excluded:candidates.filter(m=>!months.includes(m))
+  };
+}
+
+function renderIncomeLookbackControls(monthKey){
+  ensureV4State();
+  const box=$("incomeMonthPicks");
+  if(!box) return;
+  const lb=getIncomeLookbackMonths();
+  [["3","lookbackBtn3"],["6","lookbackBtn6"],["12","lookbackBtn12"]].forEach(([n,id])=>{
+    $(id)?.classList.toggle("active", Number(n)===lb);
+  });
+  const mk=monthKey || $("month")?.value || localCurrentMonthKey();
+  const candidates=incomeLookbackCandidateMonths(mk);
+  const excluded=getIncomeExcludedMonthsSet();
+  const txAll=allTx();
+  box.innerHTML=candidates.map(m=>{
+    const on=!excluded.has(m);
+    const lag=lagIncomeCompleteness(txAll, m);
+    const lagNote=lag.complete
+      ? `שכר ק.ש.ר/עירייה: מלא (${lag.present}/${lag.total})`
+      : `שכר ק.ש.ר/עירייה: חסר (${lag.present}/${lag.total})`;
+    return `<label class="income-month-pick ${on?"":"excluded"}">
+      <input type="checkbox" ${on?"checked":""} onchange="toggleIncomeMonthExclusion('${m}', this.checked)">
+      <span class="pick-main"><b>${monthLabelHe(m)}</b><small>${lagNote}</small></span>
+    </label>`;
+  }).join("");
+}
+
+function setIncomeLookbackMonths(n){
+  ensureV4State();
+  n=Number(n);
+  if(!(n===3||n===6||n===12)) return;
+  state.settings.incomeLookbackMonths=n;
+  // Drop exclusions that are outside the new window to avoid stale state
+  const mk=$("month")?.value || localCurrentMonthKey();
+  const allowed=new Set(incomeLookbackCandidateMonths(mk));
+  state.settings.incomeExcludedMonths=(state.settings.incomeExcludedMonths||[]).filter(m=>allowed.has(m));
+  save();
+  refreshIncomeForecastUI();
+}
+function toggleIncomeMonthExclusion(monthKey, include){
+  ensureV4State();
+  const set=new Set(state.settings.incomeExcludedMonths||[]);
+  if(include) set.delete(monthKey); else set.add(monthKey);
+  state.settings.incomeExcludedMonths=[...set];
+  save();
+  refreshIncomeForecastUI();
+}
+function resetIncomeMonthExclusions(){
+  ensureV4State();
+  state.settings.incomeExcludedMonths=[];
+  save();
+  refreshIncomeForecastUI();
+}
+function excludeIncompleteLagMonths(){
+  ensureV4State();
+  const mk=$("month")?.value || localCurrentMonthKey();
+  const txAll=allTx();
+  const incomplete=incomeLookbackCandidateMonths(mk).filter(m=>!lagIncomeCompleteness(txAll,m).complete);
+  state.settings.incomeExcludedMonths=[...new Set([...(state.settings.incomeExcludedMonths||[]), ...incomplete])];
+  save();
+  refreshIncomeForecastUI();
+}
+function refreshIncomeForecastUI(){
+  const mk=$("month")?.value || localCurrentMonthKey();
+  renderIncomeLookbackControls(mk);
+  try{
+    if(typeof render==="function") render();
+    if(typeof window.__updateModernDashboard==="function") window.__updateModernDashboard();
+    // Force breakdown refresh if visible
+    const f=typeof rc41ForecastForMonth==="function" ? rc41ForecastForMonth(mk) : null;
+    if(f && typeof rc50RenderForecastBreakdown==="function") rc50RenderForecastBreakdown(f, mk);
+  }catch(e){ console.error(e); }
+}
+window.setIncomeLookbackMonths=setIncomeLookbackMonths;
+window.toggleIncomeMonthExclusion=toggleIncomeMonthExclusion;
+window.resetIncomeMonthExclusions=resetIncomeMonthExclusions;
+window.excludeIncompleteLagMonths=excludeIncompleteLagMonths;
+window.renderIncomeLookbackControls=renderIncomeLookbackControls;
+
 function rc501ExpectedLeftDedup(monthKey){
   ensureV4State();
   const actualByCat={};
@@ -5121,15 +5366,29 @@ function rc50RenderForecastBreakdown(f,monthKey){
  $e("rc50Balance").textContent=(correctedBalance<0?"-":"")+fmt(Math.abs(correctedBalance));
  const eq=$e("rc50Balance").parentElement;eq.classList.toggle("negative",correctedBalance<0);
  const inc=f.incomeForecast;
- $e("rc50ForecastBasis").textContent=inc&&inc.usableHistory?"הכנסה צפויה מחושבת מהיסטוריית 6 חודשים + נתוני החודש הנוכחי.":"אין עדיין היסטוריית הכנסה מספקת; נעשה שימוש ביעד ההכנסה השמור ובנתוני החודש.";
+ if(inc&&inc.usableHistory){
+   const used=(inc.monthsUsed||[]).length, win=inc.lookback||6, excl=(inc.excluded||[]).length;
+   $e("rc50ForecastBasis").textContent=`הכנסה צפויה לפי ממוצע ${used} מתוך ${win} חודשים אחרונים${excl?` (הוחרגו ${excl})`:""}. שכר ק.ש.ר/עירייה משויך לחודש העבודה.`;
+ }else{
+   $e("rc50ForecastBasis").textContent="אין עדיין היסטוריית הכנסה מספקת; נעשה שימוש ביעד ההכנסה השמור ובנתוני החודש.";
+ }
  if(inc&&inc.rows.length){
    $e("rc50IncomeDetails").innerHTML=inc.rows.sort((a,b)=>b.expected-a.expected).map(r=>{
-     const status=r.recurring
-       ?(r.actual>0
-          ?` · התקבל בפועל ${fmt(r.actual)} — מחליף תחזית ממוצעת ${fmt(r.avg)}`
-          :` · טרם התקבל — תחזית לפי ממוצע 6 חודשים ${fmt(r.avg)}`)
-       :` · הכנסה חד-פעמית — בפועל בלבד`;
-     return `<div class="rc50-detail-row"><span>${r.cat}${status}</span><b>${fmt(r.expected)}</b></div>`;
+     let status;
+     if(r.lag){
+       status = r.actual>0
+         ? ` · שכר לחודש זה התקבל (בד"כ בחודש העוקב) ${fmt(r.actual)}`
+         : (r.expected>0
+              ? ` · טרם התקבל — תחזית לפי ממוצע ${(r.monthsUsed||[]).length||inc.lookback||6} חודשים ${fmt(r.avg)} (ק.ש.ר/עירייה נרשמים לרוב בחודש הבא)`
+              : ` · טרם התקבל`);
+     }else if(r.recurring){
+       status = r.actual>0
+         ? ` · התקבל בפועל ${fmt(r.actual)} — מחליף תחזית ממוצעת ${fmt(r.avg)}`
+         : ` · טרם התקבל — תחזית לפי ממוצע ${(r.monthsUsed||[]).length||inc.lookback||6} חודשים ${fmt(r.avg)}`;
+     }else{
+       status = ` · הכנסה חד-פעמית — בפועל בלבד`;
+     }
+     return `<div class="rc50-detail-row"><span>${escapeHtml(r.cat)}${status}</span><b>${fmt(r.expected)}</b></div>`;
    }).join("");
  }else $e("rc50IncomeDetails").innerHTML="";
  const parts=[];
@@ -5655,16 +5914,18 @@ setTimeout(function(){ try{ initCloudClient(); }catch(e){ console.error(e); } },
   function mountForecast(){
     const mount=document.getElementById("forecastPageMount");
     const box=document.getElementById("rc50ForecastBreakdown");
-    if(mount&&box&&box.parentElement!==mount){
+    if(!mount || !box) return;
+    if(box.parentElement !== mount){
       mount.appendChild(box);
-      box.hidden=false;
     }
+    box.hidden = false;
+    box.style.display = "block";
   }
+  window.mountForecast = mountForecast;
 
   window.__updateModernDashboard = updateModernDashboard;
-  // Single update path: init()/render already refresh the modern dashboard.
-  // Keep one lightweight load hook in case init ran before this script.
   window.addEventListener("load",()=>{
+    try{ mountForecast(); }catch(e){}
     if(typeof updateModernDashboard==="function") updateModernDashboard();
   });
 })();
