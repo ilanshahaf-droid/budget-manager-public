@@ -33,6 +33,8 @@ details{margin-top:8px}.legacy{background:#fff7ed;border:1px solid #fed7aa}.tiny
 .year-bars{display:grid;grid-template-columns:repeat(12,minmax(44px,1fr));gap:10px;align-items:end;min-height:290px;padding:18px 6px 4px;overflow-x:auto}
 .month-bar{min-width:44px;text-align:center}.bar-pair{height:220px;display:flex;align-items:end;justify-content:center;gap:5px;border-bottom:1px solid var(--line)}
 .bar{width:15px;border-radius:7px 7px 0 0;min-height:2px}.bar.income{background:#22a06b}.bar.expense{background:#e05a5a}
+.bar.rc40-trend{background:var(--primary);width:22px}
+.rc40-empty-bar{width:2px;background:var(--line)}
 .month-label{font-size:11px;color:var(--muted);margin-top:6px}.bar-legend{display:flex;gap:18px;justify-content:center;font-size:12px;color:var(--muted);margin-top:10px}.legend-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:4px}.legend-dot.income{background:#22a06b}.legend-dot.expense{background:#e05a5a}
 .pie-wrap{display:flex;gap:26px;align-items:center;justify-content:center;flex-wrap:wrap;padding:18px 0}
 .annual-pie{width:220px;height:220px;border-radius:50%;position:relative}.annual-pie:after{content:"";position:absolute;inset:54px;background:white;border-radius:50%}
@@ -402,8 +404,6 @@ body{
 
 
 /* consolidated from rc27-mobile-compact */
-/* Remove the unrelated green status sentence everywhere */
-.rc27-hide-status{display:none!important;}
 
 /* MOBILE: compact the whole dashboard into a much shorter, denser layout */
 @media(max-width:700px){body{background:#f8f9fd!important;}
@@ -1829,22 +1829,6 @@ header{display:none!important}
 .ux-weekly-summary .bad{color:#b42318}
 .ux-att-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
 .ux-att-actions button{min-height:34px!important;padding:6px 10px!important;font-size:12px!important;border-radius:10px!important}
-body.light-mode .month-hero,
-body.light-mode #budgetPage details.app-accordion,
-body.light-mode #budgetPage .rc41-month-end,
-body.light-mode #budgetPage .summary-grid,
-body.light-mode #uxChangeLog{display:none!important}
-/* Reduced view still hides these accordions when collapsed, but if one is explicitly
-   opened (e.g. from the Actions tab), it must stay visible — otherwise "Reduced view"
-   silently breaks the "Expected expenses / All transactions / Expense breakdown" buttons. */
-body.light-mode #budgetPage details.app-accordion[open]{display:block!important}
-body.light-mode .modern-card-grid .modern-card.saving,
-body.light-mode .modern-card-grid .modern-card.expected,
-body.light-mode .modern-card-grid .modern-card.safety,
-body.light-mode .modern-card-grid .modern-card.income,
-body.light-mode .modern-card-grid .modern-card.expense,
-body.light-mode .modern-card-grid .modern-card.utilization{display:none!important}
-body.light-mode .modern-month-dashboard{padding-bottom:8px}
 .ux-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
 .ux-toolbar button{flex:1;min-width:120px;min-height:44px;border-radius:14px;font-weight:850;font-size:13px}
 .income-example-badge{display:inline-block;margin-right:4px;padding:1px 6px;border-radius:999px;background:#efe8ff;color:#5b4b8a;font-size:10px;font-weight:800}
@@ -2642,7 +2626,6 @@ completion is excluded from all analytical totals, preventing double-counting.
     </details>
 
     <div class="ux-toolbar">
-      <button type="button" class="secondary" id="lightModeBtn" onclick="toggleLightMode()">תצוגה מצומצמת</button>
       <button type="button" class="secondary" onclick="exportMonthlyPdf()">ייצוא PDF</button>
       <button type="button" class="secondary" onclick="showPage('settings');setTimeout(function(){document.getElementById('creditAuditCard')?.scrollIntoView({behavior:'smooth',block:'start'});},80)">אשף אשראי</button>
     </div>
@@ -3222,7 +3205,6 @@ completion is excluded from all analytical totals, preventing double-counting.
       <button type="button" onclick="showPage('insurance')"><span>🛡️ ביטוחים</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('settings')"><span>⚙️ הגדרות וסנכרון</span><small>לחיצה</small></button>
       <button type="button" onclick="exportMonthlyPdf()"><span>📄 ייצוא PDF לחודש</span><small>פעולה</small></button>
-      <button type="button" onclick="toggleLightMode()"><span>🗜️ תצוגה מצומצמת</span><small>החלף</small></button>
     </div>
     <div id="moreAutoToolsMount"></div>
   </div>
@@ -3299,6 +3281,10 @@ let state=JSON.parse(localStorage.getItem("budgetV36")||"null")||JSON.parse(JSON
 const $=id=>document.getElementById(id), fmt=n=>"₪"+Number(n||0).toLocaleString("he-IL",{maximumFractionDigits:2})
 
 const SUPABASE_DEFAULT_URL="https://pznpibrlcbjpcoxagxns.supabase.co";
+// This is a Supabase "publishable" (anon) key — by design it's safe to ship in client-side code
+// (it has no privileged access; real protection comes from Supabase Row Level Security).
+// It's hardcoded as a fallback so the app can always connect even if the browser clears localStorage.
+const SUPABASE_DEFAULT_KEY="sb_publishable_PdsDUQ0Sy5if_s3p5EKbJA_E_HDfTwN";
 let supabaseClient=null, cloudUserObj=null, cloudRowId=null, cloudSaveTimer=null, cloudApplying=false, cloudChannel=null;
 let cloudSyncInFlight=false, cloudPendingAfterSync=false;
 const LOCAL_CHANGED_KEY="budgetLocalChangedAt";
@@ -3398,7 +3384,7 @@ function updateCloudUI(){
  if(!$("cloudUrl")) return;
  rc29UpdateLastSync();
  $("cloudUrl").value=localStorage.getItem("budgetSupabaseUrl")||SUPABASE_DEFAULT_URL;
- $("cloudKey").value=localStorage.getItem("budgetSupabaseKey")||"";
+ $("cloudKey").value=localStorage.getItem("budgetSupabaseKey")||SUPABASE_DEFAULT_KEY||"";
  const logged=!!cloudUserObj;
  $("cloudLoginBox").classList.toggle("hidden",logged);
  $("cloudConnectedActions").classList.toggle("hidden",!logged);
@@ -3406,12 +3392,16 @@ function updateCloudUI(){
  const first=logged && localStorage.getItem(cloudReadyKey())!=="1";
  $("cloudFirstSync").classList.toggle("hidden",!first);
  const setup=$("cloudSetupDetails");
- if(setup && (localStorage.getItem("budgetSupabaseKey")||"")) setup.open=false;
+ if(setup && (localStorage.getItem("budgetSupabaseKey")||SUPABASE_DEFAULT_KEY||"")) setup.open=false;
 }
 async function initCloudClient(){
+ // Ask the browser not to evict this site's storage under pressure. This is what
+ // actually protects the login session (not just the key) from disappearing every
+ // few days. It's a request, not a guarantee — the browser may still say no.
+ try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
  updateCloudUI();
  const url=localStorage.getItem("budgetSupabaseUrl")||SUPABASE_DEFAULT_URL;
- const key=localStorage.getItem("budgetSupabaseKey")||"";
+ const key=localStorage.getItem("budgetSupabaseKey")||SUPABASE_DEFAULT_KEY||"";
  if(!key){
    setCloudStatus("נדרש Publishable Key כדי להפעיל סנכרון.","warn");
    return;
@@ -4582,7 +4572,6 @@ function ensureV4State(){
  if(!Array.isArray(state.settings.incomeExcludedMonths)) state.settings.incomeExcludedMonths=[];
  if(typeof state.settings.autoExcludeIncompleteLag !== "boolean") state.settings.autoExcludeIncompleteLag = true;
  if(!Array.isArray(state.settings.incomeExampleMonths)) state.settings.incomeExampleMonths=[];
- if(typeof state.settings.lightMode !== "boolean") state.settings.lightMode = false;
  // Privacy: the AI-coach API key must never live in synced state (it would upload to the cloud in plaintext).
  // It's kept only in localStorage (budgetCoachApiKey/budgetCoachApiProvider). Scrub it if an older version wrote it here.
  if("coachApiKey" in state.settings) delete state.settings.coachApiKey;
@@ -6188,8 +6177,8 @@ function render(){
    : `<span class="muted">אין כרגע קטגוריה משתנה עם תחזית חריגה משמעותית.</span>`;
  if($("pendingInfo")) $("pendingInfo").innerHTML = `השיוך לחודש נקבע לפי התאריך שמופיע ב-Spendee.`;
 
- let msg,cls;if(pct>=100){msg="חריגה מהמסגרת החודשית.";cls="bad"}else if(isCur&&delta>500){msg="קצב ההוצאות כרגע גבוה מהמסגרת. בדוק במיוחד קטגוריות כתומות ואדומות.";cls="warn"}else{msg="התקציב נמצא כרגע במסלול סביר.";cls="ok"}
- $("alert").innerHTML=`<div class="alert ${cls}" style="margin-bottom:12px">${msg}</div>`;
+ // Removed at Ilan's request: the old "budget is on a reasonable track" status box was outdated and unhelpful.
+ if($("alert")) $("alert").innerHTML="";
  const expenseGroups={};
  tx.filter(x=>(x.type||"").toLowerCase()==="expense").forEach(x=>{
    const c=mapCat(x.category);
@@ -6312,6 +6301,84 @@ function renderAnnual(){
    <td>${fmt(r.income)}</td><td>${fmt(r.expenses)}</td><td>${fmt(r.savings)}</td>
    <td class="${r.balance>=0?"positive":"negative"}">${fmt(r.balance)}</td>
   </tr>`).join("");
+
+ if(typeof window.histRefresh==="function") window.histRefresh();
+}
+
+// ---- Shared helpers for the unified "עבר וניתוח" category views ----
+function histCatOf(x,type){
+  let c=x.category||"ללא קטגוריה";
+  if(type==="expense") c=typeof mapCat==="function"?mapCat(c):c;
+  return c;
+}
+function histAmountOf(x,type){
+  return type==="income"
+    ? (typeof incomeAmount==="function"?incomeAmount(x):Math.max(0,Number(x.amount||0)))
+    : (typeof expenseAmount==="function"?expenseAmount(x):Math.abs(Number(x.amount||0)));
+}
+function histPopulateCategorySelect(sel,type){
+  if(!sel) return;
+  const totals={};
+  allTx().filter(x=>(x.type||"").toLowerCase()===type).forEach(x=>{
+    const c=histCatOf(x,type);
+    if(type==="expense"){
+      const nc=typeof norm==="function"?norm(c):c;
+      if(nc==="תכנית חיסכון"||nc==="חיסכון") return;
+    }
+    const amount=histAmountOf(x,type);
+    if(amount>0) totals[c]=(totals[c]||0)+amount;
+  });
+  const cats=Object.keys(totals).sort((a,b)=>totals[b]-totals[a]);
+  const prev=sel.value;
+  sel.innerHTML=cats.length
+    ? cats.map(c=>`<option value="${String(c).replace(/"/g,"&quot;")}">${c}</option>`).join("")
+    : `<option value="">אין נתונים</option>`;
+  if(cats.includes(prev)) sel.value=prev;
+}
+function histTrendRows(category,type,period){
+  const tx=allTx().filter(x=>(x.type||"").toLowerCase()===type && histCatOf(x,type)===category);
+  if(period==="monthly"){
+    const allKeys=allTx().map(x=>(x.date||"").slice(0,7)).filter(k=>/^\d{4}-\d{2}$/.test(k)).sort();
+    const current=typeof localCurrentMonthKey==="function"?localCurrentMonthKey():new Date().toISOString().slice(0,7);
+    let end=allKeys.length?allKeys[allKeys.length-1]:current;
+    if(end<current) end=current;
+    const monthKeys=Array.from({length:12},(_,i)=>monthKeyShiftKey(end,i-11));
+    return monthKeys.map(k=>{
+      const value=tx.filter(x=>((typeof budgetMonth==="function"?budgetMonth(x):(x.date||"").slice(0,7))===k)).reduce((a,x)=>a+histAmountOf(x,type),0);
+      const label=new Intl.DateTimeFormat("he-IL",{month:"short",year:"2-digit"}).format(new Date(k+"-01T12:00:00"));
+      return {key:k,label,value};
+    });
+  }
+  const years=new Set(allTx().map(x=>(x.date||"").slice(0,4)).filter(Boolean));
+  years.add(String(new Date().getFullYear()));
+  const sortedYears=[...years].sort();
+  return sortedYears.map(y=>{
+    const value=tx.filter(x=>(x.date||"").slice(0,4)===y).reduce((a,x)=>a+histAmountOf(x,type),0);
+    return {key:y,label:y,value};
+  });
+}
+function histBarChartHTML(rows){
+  const max=Math.max(1,...rows.map(r=>r.value));
+  return `<div class="year-bars" style="grid-template-columns:repeat(${rows.length},minmax(44px,1fr))">
+      ${rows.map(r=>{
+        const h=Math.max(r.value?4:0,Math.round(r.value/max*210));
+        return `<div class="month-bar" title="${r.label}: ${fmt(r.value)}">
+          <div class="bar-pair"><div class="bar rc40-trend" style="height:${h}px"></div></div>
+          <div class="month-label">${r.label}</div>
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+function histRowListHTML(rows){
+  if(!rows.length || !rows.some(r=>r.value>0)){
+    return `<div class="rc36-empty">אין נתונים להצגה.</div>`;
+  }
+  return `<div class="rc36-cat-list">${[...rows].reverse().map(r=>`
+    <div class="rc36-cat-row">
+      <span class="rc36-cat-dot" style="background:var(--primary)"></span>
+      <span class="rc36-cat-name">${r.label}</span>
+      <span class="rc36-cat-value"><b>${fmt(r.value)}</b></span>
+    </div>`).join("")}</div>`;
 }
 
 function addManual(){let a=Number($("mamount").value);if(!a||!$("mdate").value)return alert("יש להזין תאריך וסכום");state.manual.push({date:$("mdate").value+"T12:00:00",type:$("mtype").value,category:$("mcat").value,amount:$("mtype").value=="Expense"?-a:a,note:$("mnote").value,source:"ידני"});save();render();$("mamount").value="";$("mnote").value=""}
@@ -6569,6 +6636,17 @@ if ("serviceWorker" in navigator) {
       <div id="historyMonthControls" class="history-controls" style="margin-top:14px">
         <label>שנה<select id="historyMonthYear"></select></label>
         <label>חודש<select id="historyMonthSelect"></select></label>
+      </div>
+      <div id="historyYearControls" class="history-controls hidden" style="margin-top:14px"></div>
+      <div class="history-controls" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+        <label>תצוגה<select id="histView" onchange="histOnViewChange()">
+          <option value="general">כללי</option>
+          <option value="category">לפי קטגוריה</option>
+        </select></label>
+        <label id="histTypeWrap" class="hidden">סוג<select id="histType" onchange="histOnTypeChange()">
+          <option value="expense">הוצאות</option>
+          <option value="income">הכנסות</option>
+        </select></label>
       </div>`;
     page.insertBefore(controls,page.firstChild);
 
@@ -6583,6 +6661,40 @@ if ("serviceWorker" in navigator) {
     }
     page.appendChild(yearView);
     yearView.classList.add("hidden");
+
+    // The year selector (and its "data through" note) were part of the original static
+    // year content; move them into the always-visible controls card so they stay
+    // reachable in the category view too, and drop the now-empty shell they leave behind.
+    const yearRow=$id("annualYear")?.closest("label");
+    const throughEl=$id("annualThrough");
+    const oldShell=yearRow?.parentElement;
+    if(yearRow) $id("historyYearControls").appendChild(yearRow);
+    if(throughEl) $id("historyYearControls").appendChild(throughEl);
+    if(oldShell && !oldShell.children.length) oldShell.remove();
+
+    // Shared category views (breakdown for the current period + trend for one category
+    // over time). Built once here so both the month and year modes can reuse it.
+    const catWrap=document.createElement("div");
+    catWrap.id="histCategoryWrap";
+    catWrap.className="hidden";
+    catWrap.innerHTML=`
+      <div class="card">
+        <div class="row between"><b id="histCatPanelTitle">פילוח לפי קטגוריה</b></div>
+        <div id="histCatDonutPanel"></div>
+      </div>
+      <div class="card">
+        <div class="row between"><b>מגמת הקטגוריה הנבחרת לאורך זמן</b></div>
+        <div class="history-controls" style="margin-top:10px">
+          <label>קטגוריה<select id="histTrendCategory" onchange="histRenderTrend()"></select></label>
+          <div class="chart-switch">
+            <button id="histTrendMonthlyBtn" class="active" type="button" onclick="histSetTrendPeriod('monthly')">חודשי</button>
+            <button id="histTrendYearlyBtn" type="button" onclick="histSetTrendPeriod('yearly')">שנתי</button>
+          </div>
+        </div>
+        <div id="histTrendChart" style="margin-top:10px"></div>
+        <div id="histTrendList" style="margin-top:10px"></div>
+      </div>`;
+    page.appendChild(catWrap);
 
     const years=new Set((typeof allTx==="function"?allTx():[]).map(x=>(x.date||"").slice(0,4)).filter(Boolean));
     years.add("2025"); years.add("2026"); years.add(String(new Date().getFullYear()));
@@ -6602,8 +6714,8 @@ if ("serviceWorker" in navigator) {
 
     $id("historyMonthBtn").onclick=()=>setHistoryMode("month");
     $id("historyYearBtn").onclick=()=>setHistoryMode("year");
-    yearSel.onchange=renderHistoryMonth;
-    monthSel.onchange=renderHistoryMonth;
+    yearSel.onchange=()=>{ renderHistoryMonth(); histRefresh(); };
+    monthSel.onchange=()=>{ renderHistoryMonth(); histRefresh(); };
 
     // Bridge for the interactive top chart: this listener lives in the same
     // closure as renderHistoryMonth, so it can always refresh the private month view.
@@ -6616,13 +6728,13 @@ if ("serviceWorker" in navigator) {
     });
 
     renderHistoryMonth();
+    histRefresh();
   }
 
   function setHistoryMode(mode){
     const isMonth=mode==="month";
-    $id("historyMonthView").classList.toggle("hidden",!isMonth);
-    $id("historyYearView").classList.toggle("hidden",isMonth);
     $id("historyMonthControls").classList.toggle("hidden",!isMonth);
+    $id("historyYearControls").classList.toggle("hidden",isMonth);
     $id("historyMonthBtn").classList.toggle("active",isMonth);
     $id("historyMonthBtn").classList.toggle("secondary",!isMonth);
     $id("historyYearBtn").classList.toggle("active",!isMonth);
@@ -6634,8 +6746,76 @@ if ("serviceWorker" in navigator) {
         if(typeof renderAnnual==="function") renderAnnual();
       }
     } else renderHistoryMonth();
+    histApplyVisibility();
   }
 
+  // ---- Unified "כללי / לפי קטגוריה" toggle, shared by both month and year modes ----
+  function histCurrentMode(){
+    return $id("historyYearBtn")?.classList.contains("active") ? "year" : "month";
+  }
+  function histCurrentPeriodKey(){
+    if(histCurrentMode()==="year") return $id("annualYear")?.value||String(new Date().getFullYear());
+    return `${$id("historyMonthYear")?.value}-${$id("historyMonthSelect")?.value}`;
+  }
+  function histApplyVisibility(){
+    const view=$id("histView")?.value||"general";
+    const isCategory=view==="category";
+    const mode=histCurrentMode();
+    $id("historyMonthView")?.classList.toggle("hidden", isCategory || mode!=="month");
+    $id("historyYearView")?.classList.toggle("hidden", isCategory || mode!=="year");
+    $id("histCategoryWrap")?.classList.toggle("hidden", !isCategory);
+    $id("histTypeWrap")?.classList.toggle("hidden", !isCategory);
+    if(isCategory) histRenderCategoryViews();
+  }
+  window.histOnViewChange=function(){
+    histApplyVisibility();
+  };
+  window.histOnTypeChange=function(){
+    histPopulateCategorySelect($id("histTrendCategory"),$id("histType")?.value||"expense");
+    histRenderCategoryViews();
+  };
+  let histTrendPeriod="monthly";
+  window.histSetTrendPeriod=function(period){
+    histTrendPeriod=period;
+    $id("histTrendMonthlyBtn")?.classList.toggle("active",period==="monthly");
+    $id("histTrendYearlyBtn")?.classList.toggle("active",period==="yearly");
+    histRenderTrendOnly();
+  };
+  window.histRenderTrend=function(){
+    histRenderTrendOnly();
+  };
+  function histRenderCategoryViews(){
+    const type=$id("histType")?.value||"expense";
+    const periodKey=histCurrentPeriodKey();
+    const panel=$id("histCatDonutPanel");
+    if(panel) panel.innerHTML=rc36DonutHTML(periodKey,type,{closable:false});
+    const titleEl=$id("histCatPanelTitle");
+    if(titleEl){
+      const isYear=/^\d{4}$/.test(periodKey);
+      titleEl.textContent=`פילוח ${type==="income"?"הכנסות":"הוצאות"} לפי קטגוריה — ${isYear?"שנת "+periodKey:periodKey}`;
+    }
+    if(!$id("histTrendCategory").options.length) histPopulateCategorySelect($id("histTrendCategory"),type);
+    histRenderTrendOnly();
+  }
+  function histRenderTrendOnly(){
+    const type=$id("histType")?.value||"expense";
+    const category=$id("histTrendCategory")?.value||"";
+    const chart=$id("histTrendChart");
+    const list=$id("histTrendList");
+    if(!chart || !list) return;
+    if(!category){
+      chart.innerHTML="";
+      list.innerHTML=`<div class="rc36-empty">אין נתונים להצגת מגמה.</div>`;
+      return;
+    }
+    const rows=histTrendRows(category,type,histTrendPeriod);
+    chart.innerHTML=histBarChartHTML(rows);
+    list.innerHTML=histRowListHTML(rows);
+  }
+  window.histRefresh=function(){
+    if(!$id("histView")) return;
+    histApplyVisibility();
+  };
 
   function rc34MonthCategoryTotals(monthKey){
     const out={};
@@ -6752,12 +6932,14 @@ if ("serviceWorker" in navigator) {
 
   const rc36Palette=["#22b573","#79c83d","#4e9fd1","#7d65be","#f0a33a","#e45d75","#38b7b0","#9d7ed6","#607d8b","#c76d3e"];
 
-  function rc36CategoryTotals(monthKey,type){
+  function rc36CategoryTotals(periodKey,type){
     const out={};
     if(typeof allTx!=="function") return out;
+    const isYear=/^\d{4}$/.test(periodKey);
     allTx().filter(x=>{
       const m=typeof budgetMonth==="function"?budgetMonth(x):(x.date||"").slice(0,7);
-      return m===monthKey && (x.type||"").toLowerCase()===type;
+      const matches=isYear ? m.slice(0,4)===periodKey : m===periodKey;
+      return matches && (x.type||"").toLowerCase()===type;
     }).forEach(x=>{
       let c=x.category||"ללא קטגוריה";
       if(type==="expense"){
@@ -6773,17 +6955,20 @@ if ("serviceWorker" in navigator) {
     return out;
   }
 
-  function rc36DonutHTML(monthKey,type){
-    const data=Object.entries(rc36CategoryTotals(monthKey,type))
+  function rc36DonutHTML(periodKey,type,opts){
+    opts=opts||{};
+    const data=Object.entries(rc36CategoryTotals(periodKey,type))
       .filter(([,v])=>Number(v)>0)
       .sort((a,b)=>b[1]-a[1]);
     const total=data.reduce((a,[,v])=>a+Number(v||0),0);
     const title=type==="income"?"חלוקת הכנסות":"חלוקת הוצאות";
+    const periodLabel=/^\d{4}$/.test(periodKey)?"השנה שנבחרה":"החודש שנבחר";
+    const closeBtn=opts.closable===false?"":'<button class="rc36-donut-close" type="button" aria-label="סגור">×</button>';
     if(!data.length || total<=0){
       return `<div class="rc36-donut-head">
         <div><div class="rc36-donut-title">${title}</div></div>
-        <button class="rc36-donut-close" type="button" aria-label="סגור">×</button>
-      </div><div class="rc36-empty">אין נתונים להצגת חלוקה בחודש זה.</div>`;
+        ${closeBtn}
+      </div><div class="rc36-empty">אין נתונים להצגת חלוקה בתקופה זו.</div>`;
     }
 
     let acc=0;
@@ -6805,9 +6990,9 @@ if ("serviceWorker" in navigator) {
     return `<div class="rc36-donut-head">
       <div>
         <div class="rc36-donut-title">${title}</div>
-        <div class="rc36-donut-sub">החודש שנבחר · ${data.length} קטגוריות</div>
+        <div class="rc36-donut-sub">${periodLabel} · ${data.length} קטגוריות</div>
       </div>
-      <button class="rc36-donut-close" type="button" aria-label="סגור">×</button>
+      ${closeBtn}
     </div>
     <div class="rc36-donut-layout">
       <div class="rc36-donut-wrap">
@@ -7181,28 +7366,6 @@ if ("serviceWorker" in navigator) {
   }
 
   window.addEventListener("load",()=>{const go=()=>setTimeout(run,0); if(typeof requestIdleCallback==="function") requestIdleCallback(go,{timeout:2000}); else setTimeout(run,600);});
-})();
-</script>
-
-<script id="rc27-mobile-cleanup">
-(function(){
-  function clean(t){return (t||"").replace(/\s+/g," ").trim()}
-  function run(){
-    /* Remove the unrelated "budget is currently reasonable" sentence by text, regardless of its element id/class */
-    document.querySelectorAll("div,p,span").forEach(el=>{
-      if(el.children.length) return;
-      const t=clean(el.textContent);
-      if(t==="התקציב נמצא כרגע במסלול סביר." || t==="התקציב נמצא כרגע במסלול סביר"){
-        el.classList.add("rc27-hide-status");
-      }
-    });
-
-    /* Mobile accordion state is no longer forced here.
-       On phones, scrolling can resize the browser viewport as the address bar
-       collapses/expands. The old resize handler interpreted that as a layout
-       refresh and closed user-opened accordions. User choice now wins. */
-  }
-  window.addEventListener("load",()=>{ if(typeof requestIdleCallback==="function") requestIdleCallback(()=>run(),{timeout:2000}); else setTimeout(run,700); });
 })();
 </script>
 
@@ -9215,22 +9378,6 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
     }catch(e){ alert("שחזור נכשל: "+e.message); }
   };
 
-  // ---- Light mode ----
-  window.toggleLightMode = function(){
-    if(typeof ensureV4State==="function") ensureV4State();
-    state.settings.lightMode = !state.settings.lightMode;
-    if(typeof save==="function") save();
-    applyLightMode();
-    if(typeof pushChangeLog==="function") pushChangeLog(state.settings.lightMode?"הופעלה תצוגה מצומצמת":"בוטלה תצוגה מצומצמת");
-  };
-  function applyLightMode(){
-    const on = !!(state&&state.settings&&state.settings.lightMode);
-    document.body.classList.toggle("light-mode", on);
-    const btn=$("lightModeBtn");
-    if(btn) btn.textContent = on ? "תצוגה מלאה" : "תצוגה מצומצמת";
-  }
-  window.applyLightMode = applyLightMode;
-
   // ---- Weekly summary ----
   function startOfWeek(d){
     const x=new Date(d); const day=x.getDay(); // Sun=0
@@ -9397,7 +9544,6 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
   window.refreshUxPanels = function(){
     if(typeof prevRefresh==="function") prevRefresh();
     try{ renderWeeklySummary(); }catch(e){}
-    try{ applyLightMode(); }catch(e){}
     try{ wireForecastCategoryClicks(); }catch(e){}
   };
 
@@ -9431,7 +9577,6 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
   }
 
   function boot(){
-    try{ applyLightMode(); }catch(e){}
     try{ renderWeeklySummary(); }catch(e){}
     try{ injectRestoreBtn(); }catch(e){}
     try{ if(typeof window.refreshUxPanels==="function") window.refreshUxPanels(); }catch(e){}
