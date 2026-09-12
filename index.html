@@ -3197,6 +3197,8 @@ completion is excluded from all analytical totals, preventing double-counting.
     <option value="gemini">Google Gemini</option>
     <option value="xai">xAI (Grok)</option>
     <option value="openai">OpenAI</option>
+    <option value="groq">Groq (חינם, ללא כרטיס אשראי)</option>
+    <option value="claude">Claude (Anthropic)</option>
    </select>
    <button type="button" onclick="saveCoachApiSettings()" style="min-height:42px;font-weight:850">שמור מפתח</button>
   </div>
@@ -4216,15 +4218,15 @@ async function fundDocToParts(file){
   const type=(file.type||"").toLowerCase();
   if(type.startsWith("image/")){
     const data=await fundFileToBase64(file);
-    return [{inlineData:{mimeType:type||"image/jpeg",data}}];
+    return {kind:"image",mimeType:type||"image/jpeg",data};
   }
   if(type==="application/pdf"||name.endsWith(".pdf")){
     const data=await fundFileToBase64(file);
-    return [{inlineData:{mimeType:"application/pdf",data}}];
+    return {kind:"pdf",mimeType:"application/pdf",data};
   }
   if(name.endsWith(".csv")||type==="text/csv"){
     const text=await file.text();
-    return [{text:"תוכן קובץ ה-CSV:\n"+text.slice(0,20000)}];
+    return {kind:"text",text:"תוכן קובץ ה-CSV:\n"+text.slice(0,20000)};
   }
   if(name.endsWith(".xlsx")||name.endsWith(".xls")||type.includes("spreadsheet")){
     if(typeof ensureXlsxLoaded!=="function") throw new Error("ספריית קריאת Excel לא זמינה");
@@ -4232,41 +4234,16 @@ async function fundDocToParts(file){
     const buf=await file.arrayBuffer();
     const wb=XLSXLib.read(buf,{type:"array"});
     const sheetsText=wb.SheetNames.map(sn=>`גיליון: ${sn}\n`+XLSXLib.utils.sheet_to_csv(wb.Sheets[sn])).join("\n\n");
-    return [{text:"תוכן קובץ האקסל:\n"+sheetsText.slice(0,20000)}];
+    return {kind:"text",text:"תוכן קובץ האקסל:\n"+sheetsText.slice(0,20000)};
   }
   throw new Error("סוג קובץ לא נתמך. אפשר PDF, Excel, CSV או תמונה.");
 }
-async function extractFundsFromParts(cfg,fileParts){
-  const instruction=`אתה עוזר שמחלץ מידע על קרנות פנסיה, קרנות השתלמות וקופות גמל מתוך מסמכים פיננסיים ישראליים (דוחות שנתיים, ריכוזי מסלקה פנסיונית, צילומי מסך של אפליקציות, טבלאות אקסל/CSV).
-קרא את המסמך המצורף בעיון, כולל שמות העמודות המדויקים שלו. שים לב: מסמכי מסלקה פנסיונית מכילים לרוב עמודות בשם "מס' מ"ה" או "מספר קופה" (מספר מזהה של הקרן/החברה) ו"מספר חשבון" (מספר החשבון הספציפי של העמית) — אלה שני מספרים שונים ושניהם חשובים.
-אם אותה קרן (אותו שם + אותו מס' מ"ה) מופיעה עם כמה "מספרי חשבון" שונים בשורות נפרדות, התייחס לכל שורה כאל קרן/חשבון נפרד בפני עצמו — אל תמזג אותם לרשומה אחת ואל תסכם את הסכומים.
-עבור כל קרן/חשבון החזר אובייקט עם השדות הבאים בדיוק:
-- "type": אחד מהערכים pension / hishtalmut / gemel / severance / other (פנסיה=pension, השתלמות=hishtalmut, גמל=gemel, פיצויים=severance, אחר=other)
-- "provider": שם הקופה/הקרן או החברה המנהלת (מחרוזת, או "" אם לא ידוע)
-- "trackName": שם מסלול ההשקעה אם מצוין, אחרת ""
-- "fundNumber": מספר הקופה/הקרן כפי שמופיע במסמך (למשל עמודה "מס' מ\"ה" או "מספר קופה") — מחרוזת, או "" אם אין כזה שדה במסמך
-- "accountNumber": מספר החשבון הספציפי (עמודה "מספר חשבון" או דומה) — מחרוזת, או "" אם אין כזה שדה במסמך
-- "balance": יתרה כספית כמספר בלבד, ללא סימני מטבע, פסיקים או טקסט
-- "date": תאריך היתרה בפורמט YYYY-MM-DD, רק אם תאריך כזה מופיע בפועל במסמך (למשל "נכון ליום..."). אם מופיע רק חודש ושנה, השתמש ב-01 כיום בחודש. אם אין שום תאריך במסמך — אל תמציא אחד, החזר מחרוזת ריקה "".
-
-חשוב: אל תשאיר שדה ריק רק כי לא חיפשת מספיק טוב — בדוק את כל העמודות במסמך לפני שאתה מחליט ששדה לא קיים. החזר אך ורק מערך JSON תקין (JSON array), ללא הסברים, ללא markdown fences, ללא טקסט נוסף לפני או אחרי. אם לא זיהית אף קרן, החזר [].`;
-  const body={
-    contents:[{role:"user",parts:[{text:instruction},...fileParts]}],
-    generationConfig:{temperature:0.1,maxOutputTokens:2000}
-  };
-  const res=await window.fetchWithTimeout(cfg.url,{
-    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)
-  },30000);
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok){
-    const msg=data?.error?.message||res.statusText||("שגיאה "+res.status);
-    if(/API key not valid|API_KEY_INVALID/i.test(msg)) throw new Error("מפתח Gemini לא תקין. עדכן אותו בהגדרות.");
-    if(/quota|rate limit|RESOURCE_EXHAUSTED/i.test(msg)) throw new Error("חרגת ממכסת Gemini החינמית. נסה שוב מאוחר יותר.");
-    throw new Error(msg);
-  }
-  const parts=data?.candidates?.[0]?.content?.parts||[];
-  let textOut=parts.map(p=>p&&p.text?p.text:"").join("\n").trim();
-  textOut=textOut.replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+// Providers that can read images/PDFs directly (vision + document support).
+// Text-only providers (Groq's default free model, etc.) can still handle CSV/Excel,
+// just not photos or PDFs of a document.
+const FUND_DOC_VISION_PROVIDERS=new Set(["gemini","claude"]);
+function parseFundsJsonArray(textOut){
+  textOut=String(textOut||"").replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
   let parsed;
   try{ parsed=JSON.parse(textOut); }
   catch(e){
@@ -4288,6 +4265,82 @@ async function extractFundsFromParts(cfg,fileParts){
     };
   });
 }
+async function extractFundsFromParts(cfg,fileRepr){
+  const instruction=`אתה עוזר שמחלץ מידע על קרנות פנסיה, קרנות השתלמות וקופות גמל מתוך מסמכים פיננסיים ישראליים (דוחות שנתיים, ריכוזי מסלקה פנסיונית, צילומי מסך של אפליקציות, טבלאות אקסל/CSV).
+קרא את המסמך המצורף בעיון, כולל שמות העמודות המדויקים שלו. שים לב: מסמכי מסלקה פנסיונית מכילים לרוב עמודות בשם "מס' מ"ה" או "מספר קופה" (מספר מזהה של הקרן/החברה) ו"מספר חשבון" (מספר החשבון הספציפי של העמית) — אלה שני מספרים שונים ושניהם חשובים.
+אם אותה קרן (אותו שם + אותו מס' מ"ה) מופיעה עם כמה "מספרי חשבון" שונים בשורות נפרדות, התייחס לכל שורה כאל קרן/חשבון נפרד בפני עצמו — אל תמזג אותם לרשומה אחת ואל תסכם את הסכומים.
+עבור כל קרן/חשבון החזר אובייקט עם השדות הבאים בדיוק:
+- "type": אחד מהערכים pension / hishtalmut / gemel / severance / other (פנסיה=pension, השתלמות=hishtalmut, גמל=gemel, פיצויים=severance, אחר=other)
+- "provider": שם הקופה/הקרן או החברה המנהלת (מחרוזת, או "" אם לא ידוע)
+- "trackName": שם מסלול ההשקעה אם מצוין, אחרת ""
+- "fundNumber": מספר הקופה/הקרן כפי שמופיע במסמך (למשל עמודה "מס' מ\"ה" או "מספר קופה") — מחרוזת, או "" אם אין כזה שדה במסמך
+- "accountNumber": מספר החשבון הספציפי (עמודה "מספר חשבון" או דומה) — מחרוזת, או "" אם אין כזה שדה במסמך
+- "balance": יתרה כספית כמספר בלבד, ללא סימני מטבע, פסיקים או טקסט
+- "date": תאריך היתרה בפורמט YYYY-MM-DD, רק אם תאריך כזה מופיע בפועל במסמך (למשל "נכון ליום..."). אם מופיע רק חודש ושנה, השתמש ב-01 כיום בחודש. אם אין שום תאריך במסמך — אל תמציא אחד, החזר מחרוזת ריקה "".
+
+חשוב: אל תשאיר שדה ריק רק כי לא חיפשת מספיק טוב — בדוק את כל העמודות במסמך לפני שאתה מחליט ששדה לא קיים. החזר אך ורק מערך JSON תקין (JSON array), ללא הסברים, ללא markdown fences, ללא טקסט נוסף לפני או אחרי. אם לא זיהית אף קרן, החזר [].`;
+
+  if(cfg.provider==="claude"){
+    const contentBlocks=[{type:"text",text:instruction}];
+    if(fileRepr.kind==="image") contentBlocks.push({type:"image",source:{type:"base64",media_type:fileRepr.mimeType,data:fileRepr.data}});
+    else if(fileRepr.kind==="pdf") contentBlocks.push({type:"document",source:{type:"base64",media_type:"application/pdf",data:fileRepr.data}});
+    else contentBlocks.push({type:"text",text:fileRepr.text});
+    const body={model:cfg.model,max_tokens:2000,temperature:0.1,messages:[{role:"user",content:contentBlocks}]};
+    const res=await window.fetchWithTimeout(cfg.url,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":cfg.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify(body)
+    },30000);
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok){
+      const msg=data?.error?.message||res.statusText||("שגיאה "+res.status);
+      if(/credit balance is too low/i.test(msg)) throw new Error("אין יתרת קרדיט ב-API של Claude (זה נפרד ממנוי claude.ai). "+msg);
+      if(/invalid x-api-key|authentication_error/i.test(msg)) throw new Error("מפתח Claude לא תקין.");
+      throw new Error(msg);
+    }
+    const textOut=(data?.content||[]).filter(b=>b&&b.type==="text").map(b=>b.text).join("\n");
+    return parseFundsJsonArray(textOut);
+  }
+
+  if(fileRepr.kind!=="text" && !FUND_DOC_VISION_PROVIDERS.has(cfg.provider)){
+    throw new Error(`${cfg.name} לא תומך בקריאת תמונות/PDF במאמן הזה. אפשר להשתמש ב-Gemini או Claude לסוג קובץ הזה, או להעלות קובץ CSV/Excel.`);
+  }
+  if(cfg.provider!=="gemini"){
+    // Text-only fallback for OpenAI-compatible providers (Groq/OpenAI/xAI): CSV/Excel only.
+    const body={
+      model:cfg.model,temperature:0.1,max_tokens:2000,
+      messages:[{role:"system",content:instruction},{role:"user",content:fileRepr.text}]
+    };
+    const res=await window.fetchWithTimeout(cfg.url,{
+      method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg.key},body:JSON.stringify(body)
+    },30000);
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data?.error?.message||res.statusText||("שגיאה "+res.status));
+    const textOut=(data?.choices?.[0]?.message?.content||"").trim();
+    return parseFundsJsonArray(textOut);
+  }
+
+  const fileParts=fileRepr.kind==="text"
+    ? [{text:fileRepr.text}]
+    : [{inlineData:{mimeType:fileRepr.mimeType,data:fileRepr.data}}];
+  const body={
+    contents:[{role:"user",parts:[{text:instruction},...fileParts]}],
+    generationConfig:{temperature:0.1,maxOutputTokens:2000}
+  };
+  const res=await window.fetchWithTimeout(cfg.url,{
+    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)
+  },30000);
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok){
+    const msg=data?.error?.message||res.statusText||("שגיאה "+res.status);
+    if(/API key not valid|API_KEY_INVALID/i.test(msg)) throw new Error("מפתח Gemini לא תקין. עדכן אותו בהגדרות.");
+    if(/quota|rate limit|RESOURCE_EXHAUSTED/i.test(msg)) throw new Error("חרגת ממכסת Gemini החינמית. נסה שוב מאוחר יותר.");
+    throw new Error(msg);
+  }
+  const parts=data?.candidates?.[0]?.content?.parts||[];
+  const textOut=parts.map(p=>p&&p.text?p.text:"").join("\n");
+  return parseFundsJsonArray(textOut);
+}
 async function onFundDocSelected(event){
   const file=event.target.files&&event.target.files[0];
   event.target.value="";
@@ -4296,10 +4349,6 @@ async function onFundDocSelected(event){
   const cfg=typeof window.providerConfig==="function"?window.providerConfig():null;
   if(!cfg||!cfg.key){
     fundImportSetStatus('צריך קודם להגדיר מפתח API בהגדרות → "מאמן פיננסי מתקדם".',true);
-    return;
-  }
-  if(cfg.provider!=="gemini"){
-    fundImportSetStatus("טעינת מסמכים נתמכת כרגע רק עם ספק Gemini. עבור להגדרות ובחר Gemini.",true);
     return;
   }
   if(file.size>15*1024*1024){
@@ -11458,6 +11507,28 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
         key, name: "xAI"
       };
     }
+    if(provider === "groq"){
+      // Groq's free tier needs no credit card and is OpenAI-compatible, so it reuses
+      // the same request/response handling as the "openai"/"xai" branches below.
+      return {
+        provider: "groq",
+        url: "https://api.groq.com/openai/v1/chat/completions",
+        model: "llama-3.3-70b-versatile",
+        key, name: "Groq"
+      };
+    }
+    if(provider === "claude"){
+      // Anthropic's Messages API — a different request/response shape than the
+      // OpenAI-style providers above, handled by its own branch wherever it's called.
+      // Note: this needs a separate Anthropic Console API key with its own billing;
+      // a claude.ai Pro/Max subscription does not include API access.
+      return {
+        provider: "claude",
+        url: "https://api.anthropic.com/v1/messages",
+        model: "claude-sonnet-5",
+        key, name: "Claude"
+      };
+    }
     // Google Gemini — free-tier friendly model
     const model = "gemini-3.6-flash";
     return {
@@ -11598,6 +11669,46 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
           const reason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason || "";
           throw new Error("המודל החזיר תשובה ריקה" + (reason ? " ("+reason+")" : ""));
         }
+      } else if(cfg.provider === "claude"){
+        const body = {
+          model: cfg.model,
+          max_tokens: 900,
+          system: systemText,
+          messages: [{role:"user", content: userPrompt}]
+        };
+        let res;
+        try{
+          res = await fetchWithTimeout(cfg.url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": cfg.key,
+              "anthropic-version": "2023-06-01",
+              // Anthropic requires this exact opt-in header for browser-based (CORS) calls;
+              // it's the standard "bring your own key" client-side pattern for this API.
+              "anthropic-dangerous-direct-browser-access": "true"
+            },
+            body: JSON.stringify(body)
+          }, 25000);
+        }catch(netErr){
+          if(netErr && netErr.name === "AbortError"){
+            throw new Error("הבקשה ארכה יותר מדי (timeout). בדוק אינטרנט או נסה שוב.");
+          }
+          throw new Error("לא ניתן להתחבר ל-Claude.\n\n" + String(netErr.message||netErr));
+        }
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok){
+          const msg = data?.error?.message || res.statusText || ("שגיאה "+res.status);
+          if(/credit balance is too low/i.test(msg)){
+            throw new Error("אין יתרת קרדיט ב-API של Claude. שים לב: מנוי ל-claude.ai (Pro/Max) לא כולל גישת API — נדרש חשבון נפרד ב-console.anthropic.com עם אמצעי תשלום. "+msg);
+          }
+          if(/invalid x-api-key|authentication_error/i.test(msg)){
+            throw new Error("מפתח Claude לא תקין. ודא שיצרת אותו ב-console.anthropic.com (לא claude.ai).");
+          }
+          throw new Error(msg);
+        }
+        textOut = (data?.content||[]).filter(b=>b&&b.type==="text").map(b=>b.text).join("\n").trim();
+        if(!textOut) throw new Error("המודל החזיר תשובה ריקה");
       } else {
         const body = {
           model: cfg.model,
