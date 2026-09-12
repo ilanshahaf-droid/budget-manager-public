@@ -2204,6 +2204,24 @@ window.ensureXlsxLoaded=function(){
   });
   return window.__xlsxLoading;
 };
+// ExcelJS is used (instead of the plain xlsx library above) specifically for the
+// formatted multi-sheet report export, because it can actually write cell colors,
+// bold fonts, borders, RTL sheet direction and frozen header rows to a real .xlsx —
+// the community edition of the xlsx library above silently drops all of that.
+window.__exceljsLoading=null;
+window.ensureExcelJsLoaded=function(){
+  if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if(window.__exceljsLoading) return window.__exceljsLoading;
+  window.__exceljsLoading=new Promise(function(resolve,reject){
+    var s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+    s.async=true;
+    s.onload=function(){resolve(window.ExcelJS)};
+    s.onerror=function(){window.__exceljsLoading=null;reject(new Error("טעינת ספריית העיצוב לאקסל נכשלה"))};
+    document.head.appendChild(s);
+  });
+  return window.__exceljsLoading;
+};
 </script>
 <style id="v42-insurance-credit-controls">
 .insurance-filter-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
@@ -2626,7 +2644,6 @@ completion is excluded from all analytical totals, preventing double-counting.
     </details>
 
     <div class="ux-toolbar">
-      <button type="button" class="secondary" onclick="exportFullExcelReport()">ייצוא דוח Excel מלא</button>
       <button type="button" class="secondary" onclick="showPage('settings');setTimeout(function(){document.getElementById('creditAuditCard')?.scrollIntoView({behavior:'smooth',block:'start'});},80)">אשף אשראי</button>
     </div>
 
@@ -3218,6 +3235,10 @@ completion is excluded from all analytical totals, preventing double-counting.
         <div class="ic">🏘️</div>
         <div><b>ייבוא קיבוץ</b><span>הוספת הוצאות קיבוץ בלי למחוק Spendee</span></div>
       </div>
+      <div class="action-tile" onclick="exportFullExcelReport()">
+        <div class="ic">📊</div>
+        <div><b>ייצוא דוח Excel מלא</b><span>עו"ש, עבר וניתוח, ביטוחים, קרנות ועוד</span></div>
+      </div>
     </div>
   </div>
 </div>
@@ -3232,7 +3253,6 @@ completion is excluded from all analytical totals, preventing double-counting.
       <button type="button" onclick="showPage('insurance')"><span>🛡️ ביטוחים</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('funds')"><span>🏦 קרנות וחיסכון פנסיוני</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('settings')"><span>⚙️ הגדרות וסנכרון</span><small>לחיצה</small></button>
-      <button type="button" onclick="exportFullExcelReport()"><span>📊 ייצוא דוח Excel מלא</span><small>פעולה</small></button>
     </div>
     <div id="moreAutoToolsMount"></div>
   </div>
@@ -6872,16 +6892,69 @@ function editSettings(){
 }
 function exportBackup(){let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="budget-v4-backup.json";a.click();URL.revokeObjectURL(a.href)}
 
+// Builds one formatted sheet: bold white-on-purple header row, RTL, frozen header,
+// auto-fit column widths, currency formatting on numeric columns, light row banding.
+function xlBuildSheet(wb,name,headers,rows,opts){
+  opts=opts||{};
+  const currencyCols=new Set(opts.currencyCols||[]);
+  const boldRowIdx=new Set(opts.boldRows||[]);
+  const dateFormats={}; // colIndex -> Excel number format string, for cells holding a real Date
+  (opts.dateCols||[]).forEach(c=>{ dateFormats[c]="dd-mm-yyyy"; });
+  (opts.dateTimeCols||[]).forEach(c=>{ dateFormats[c]="dd-mm-yyyy hh:mm"; });
+  const ws=wb.addWorksheet(name,{views:[{rightToLeft:true,state:"frozen",ySplit:1}]});
+  ws.addRow(headers);
+  const headerRow=ws.getRow(1);
+  headerRow.eachCell(c=>{
+    c.font={bold:true,color:{argb:"FFFFFFFF"}};
+    c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF5B4B8A"}};
+    c.alignment={horizontal:"right",vertical:"middle"};
+    c.border={bottom:{style:"thin",color:{argb:"FF3D3164"}}};
+  });
+  headerRow.height=22;
+  rows.forEach((r,i)=>{
+    const row=ws.addRow(r);
+    const isBold=boldRowIdx.has(i);
+    row.eachCell({includeEmpty:true},(c,colNum)=>{
+      c.alignment={horizontal:"right"};
+      c.border={bottom:{style:"thin",color:{argb:"FFE5E7EB"}}};
+      if(isBold) c.font={bold:true};
+      if(currencyCols.has(colNum-1)) c.numFmt='#,##0 "₪"';
+      if(dateFormats[colNum-1] && c.value instanceof Date) c.numFmt=dateFormats[colNum-1];
+      if(!isBold && i%2===1) c.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF6F7FB"}};
+    });
+  });
+  // Auto-fit column widths from header + content length (Hebrew-friendly rough estimate)
+  const colCount=headers.length;
+  for(let c=0;c<colCount;c++){
+    let max=String(headers[c]??"").length;
+    const isDateTimeCol=!!dateFormats[c] && dateFormats[c].includes("hh:mm");
+    rows.forEach(r=>{
+      const v=r[c];
+      const len=(v instanceof Date)?(isDateTimeCol?16:10):(typeof v==="number")?String(Math.round(v)).length+3:String(v??"").length;
+      if(len>max) max=len;
+    });
+    ws.getColumn(c+1).width=Math.min(45,Math.max(10,max+3));
+  }
+  return ws;
+}
+// Converts a stored "YYYY-MM-DD" date string into a real Date object (noon, to dodge
+// timezone-boundary shifts), so Excel can display/sort/filter it as an actual date —
+// formatted as dd-mm-yyyy by xlBuildSheet's dateCols option.
+function xlDate(iso){
+  if(!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return null;
+  return new Date(iso.slice(0,10)+"T12:00:00");
+}
+
 async function exportFullExcelReport(){
   try{
-    if(!window.XLSX){
-      if(typeof ensureXlsxLoaded==="function") await ensureXlsxLoaded();
-      if(!window.XLSX) throw new Error("ספריית XLSX לא נטענה. ודא שיש חיבור לאינטרנט ונסה שוב.");
+    if(!window.ExcelJS){
+      if(typeof ensureExcelJsLoaded==="function") await ensureExcelJsLoaded();
+      if(!window.ExcelJS) throw new Error("ספריית העיצוב לאקסל לא נטענה. ודא שיש חיבור לאינטרנט ונסה שוב.");
     }
     ensureV4State();
-    const wb=XLSX.utils.book_new();
-    wb.Workbook=wb.Workbook||{};
-    wb.Workbook.Views=[{RTL:true}];
+    const wb=new ExcelJS.Workbook();
+    wb.creator="מנהל התקציב שלי";
+    wb.created=new Date();
 
     const mk=($("month")&&$("month").value)||localCurrentMonthKey();
     const txAll=allTx();
@@ -6889,7 +6962,7 @@ async function exportFullExcelReport(){
     const rowFor=x=>{
       const isIncome=(x.type||"").toLowerCase()==="income";
       return [
-        (x.date||"").slice(0,10),
+        xlDate((x.date||"").slice(0,10)),
         isIncome?"הכנסה":"הוצאה",
         isIncome?(x.category||""):mapCat(x.category),
         isIncome?incomeAmount(x):expenseAmount(x),
@@ -6906,37 +6979,37 @@ async function exportFullExcelReport(){
 
     // ---- 1. סיכום ----
     const summaryRows=[
-      ["דוח מלא — מנהל התקציב שלי"],
-      ["נוצר בתאריך",new Date().toLocaleString("he-IL")],
-      [],
+      ["נוצר בתאריך",new Date()],
       ["חודש נוכחי",monthHeb(mk)+" "+mk.slice(0,4)],
       ["הכנסות החודש",curIncome],
       ["הוצאות החודש",curExpense],
       ["מאזן החודש",curIncome-curExpense],
-      [],
       ["סה\"כ חיסכון פנסיוני (כל הקרנות)",fundsTotal],
-      ...Object.keys(fundsByType).map(k=>["  מתוכו "+fundTypeLabel(k),fundsByType[k]])
+      ...Object.keys(fundsByType).map(k=>["מתוכו "+fundTypeLabel(k),fundsByType[k]])
     ];
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summaryRows),"סיכום");
+    xlBuildSheet(wb,"סיכום",["פריט","ערך"],summaryRows,{currencyCols:[1],boldRows:[4,5],dateTimeCols:[1]});
 
     // ---- 2. עו"ש (חודש נוכחי) ----
-    const checkingRows=[["תאריך","סוג","קטגוריה","סכום","הערה"]];
-    curTx.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(x=>checkingRows.push(rowFor(x)));
-    checkingRows.push([]);
+    const checkingRows=curTx.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).map(rowFor);
+    const checkingTotalsStart=checkingRows.length;
     checkingRows.push(["סה\"כ הכנסות","","",curIncome,""]);
     checkingRows.push(["סה\"כ הוצאות","","",curExpense,""]);
     checkingRows.push(["מאזן","","",curIncome-curExpense,""]);
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(checkingRows),'עו"ש');
+    xlBuildSheet(wb,'עו"ש',["תאריך","סוג","קטגוריה","סכום","הערה"],checkingRows,{
+      currencyCols:[3],
+      dateCols:[0],
+      boldRows:[checkingTotalsStart,checkingTotalsStart+1,checkingTotalsStart+2]
+    });
 
     // ---- 3. עבר וניתוח (כל החודשים ההיסטוריים) ----
     const years=[...new Set(txAll.map(x=>(x.date||"").slice(0,4)).filter(Boolean))].sort();
-    const historyRows=[["חודש","הכנסות","הוצאות","חיסכון","מאזן"]];
+    const historyRows=[];
     years.forEach(y=>{
       annualData(y).filter(r=>r.count>0).forEach(r=>{
         historyRows.push([r.label+" "+y,r.income,r.expenses,r.savings,r.balance]);
       });
     });
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(historyRows),"עבר וניתוח");
+    xlBuildSheet(wb,"עבר וניתוח",["חודש","הכנסות","הוצאות","חיסכון","מאזן"],historyRows,{currencyCols:[1,2,3,4]});
 
     // ---- 4. ביטוחים (פילוח חודשי) ----
     const insMonthly={};
@@ -6947,37 +7020,44 @@ async function exportFullExcelReport(){
       insMonthly[mkey]=insMonthly[mkey]||{ilan:0,children:0,car:0,health:0};
       insMonthly[mkey][bucket]+=expenseAmount(x);
     });
-    const insRows=[["חודש","ביטוחים - אילן","ביטוחים - ילדים","ביטוחי רכב","קופת חולים","סה\"כ"]];
-    Object.keys(insMonthly).sort().forEach(mkey=>{
+    const insRows=Object.keys(insMonthly).sort().map(mkey=>{
       const v=insMonthly[mkey],total=v.ilan+v.children+v.car+v.health;
-      insRows.push([mkey,v.ilan,v.children,v.car,v.health,total]);
+      return [monthHeb(mkey)+" "+mkey.slice(0,4),v.ilan,v.children,v.car,v.health,total];
     });
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(insRows),"ביטוחים");
+    xlBuildSheet(wb,"ביטוחים",["חודש","ביטוחים - אילן","ביטוחים - ילדים","ביטוחי רכב","קופת חולים","סה\"כ"],insRows,{currencyCols:[1,2,3,4,5]});
 
     // ---- 5. קרנות פנסיה והשתלמות ----
-    const fundsRows=[["סוג","חברה מנהלת","מסלול","מס' קופה","מספר חשבון","יתרה נוכחית","תאריך עדכון","הפקדה חודשית משוערת","הערות"]];
-    (state.funds||[]).forEach(f=>{
+    const fundsRows=(state.funds||[]).map(f=>{
       const latest=fundLatestEntry(f);
-      fundsRows.push([fundTypeLabel(f.type),f.provider||"",f.trackName||"",f.fundNumber||"",f.accountNumber||"",latest?latest.balance:0,latest?latest.date:"",f.monthlyDeposit||0,f.notes||""]);
+      return [fundTypeLabel(f.type),f.provider||"",f.trackName||"",f.fundNumber||"",f.accountNumber||"",latest?latest.balance:0,latest?xlDate(latest.date):null,f.monthlyDeposit||0,f.notes||""];
     });
-    if((state.funds||[]).length) fundsRows.push([],["סה\"כ","","","","",fundsTotal,"","",""]);
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(fundsRows),"קרנות");
+    let fundsBoldRows=[];
+    if(fundsRows.length){
+      fundsBoldRows=[fundsRows.length];
+      fundsRows.push(["סה\"כ","","","","",fundsTotal,"","",""]);
+    }
+    xlBuildSheet(wb,"קרנות",["סוג","חברה מנהלת","מסלול","מס' קופה","מספר חשבון","יתרה נוכחית","תאריך עדכון","הפקדה חודשית משוערת","הערות"],fundsRows,{currencyCols:[5,7],dateCols:[6],boldRows:fundsBoldRows});
 
     // ---- 6. קרנות - היסטוריית יתרות (לגרפי צמיחה בעצמך ב-Excel) ----
-    const fundsHistRows=[["חברה מנהלת","סוג","מספר חשבון","תאריך","יתרה"]];
+    const fundsHistRows=[];
     (state.funds||[]).forEach(f=>{
       (f.history||[]).slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(h=>{
-        fundsHistRows.push([f.provider||"",fundTypeLabel(f.type),f.accountNumber||"",h.date,h.balance]);
+        fundsHistRows.push([f.provider||"",fundTypeLabel(f.type),f.accountNumber||"",xlDate(h.date),h.balance]);
       });
     });
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(fundsHistRows),"קרנות - היסטוריה");
+    xlBuildSheet(wb,"קרנות - היסטוריה",["חברה מנהלת","סוג","מספר חשבון","תאריך","יתרה"],fundsHistRows,{currencyCols:[4],dateCols:[3]});
 
     // ---- 7. תנועות מלאות (כל הזמן — לניתוח/פיבוט עצמאי) ----
-    const allRows=[["תאריך","סוג","קטגוריה","סכום","הערה"]];
-    txAll.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(x=>allRows.push(rowFor(x)));
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(allRows),"תנועות מלאות");
+    const allRows=txAll.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).map(rowFor);
+    xlBuildSheet(wb,"תנועות מלאות",["תאריך","סוג","קטגוריה","סכום","הערה"],allRows,{currencyCols:[3],dateCols:[0]});
 
-    XLSX.writeFile(wb,`דוח-תקציב-מלא-${new Date().toISOString().slice(0,10)}.xlsx`);
+    const buffer=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buffer],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`דוח-תקציב-מלא-${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }catch(e){
     console.error(e);
     alert("שגיאה בייצוא הדוח: "+(e.message||e));
