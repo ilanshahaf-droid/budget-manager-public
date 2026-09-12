@@ -2626,7 +2626,7 @@ completion is excluded from all analytical totals, preventing double-counting.
     </details>
 
     <div class="ux-toolbar">
-      <button type="button" class="secondary" onclick="exportMonthlyPdf()">ייצוא PDF</button>
+      <button type="button" class="secondary" onclick="exportFullExcelReport()">ייצוא דוח Excel מלא</button>
       <button type="button" class="secondary" onclick="showPage('settings');setTimeout(function(){document.getElementById('creditAuditCard')?.scrollIntoView({behavior:'smooth',block:'start'});},80)">אשף אשראי</button>
     </div>
 
@@ -3020,6 +3020,33 @@ completion is excluded from all analytical totals, preventing double-counting.
   </div>
 </div>
 
+<div id="fundsPage" class="page">
+  <div class="card">
+    <b style="font-size:21px">🏦 קרנות וחיסכון פנסיוני</b>
+    <div class="muted" style="margin-top:4px">מעקב יתרות בקרנות פנסיה, השתלמות וגמל — מוזן ידנית, מתעדכן לפי הדוחות שמתקבלים</div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><b>סה״כ חיסכון פנסיוני</b></div>
+    <div class="hero-value" id="fundsGrandTotal" style="margin-top:6px">₪0</div>
+    <div class="muted tiny" id="fundsGrandTotalSub"></div>
+    <div class="annual-grid" id="fundsTypeBreakdown" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card row between">
+    <div><b>הקרנות שלי</b><div class="muted tiny">לחץ "עדכן יתרה" בכל פעם שמגיע דוח חדש, כדי לבנות גרף צמיחה</div></div>
+    <div class="ux-att-actions">
+      <button type="button" onclick="addFund()">+ הוסף קרן</button>
+      <button type="button" class="secondary" onclick="triggerFundDocUpload()">📄 טען מסמך</button>
+    </div>
+  </div>
+  <input type="file" id="fundDocInput" accept=".pdf,.csv,.xlsx,.xls,image/*" style="display:none" onchange="onFundDocSelected(event)">
+  <div id="fundImportStatus" class="muted tiny" style="margin:0 4px 8px"></div>
+  <div id="fundImportReview"></div>
+
+  <div id="fundsList"></div>
+</div>
+
 <div id="settingsPage" class="page">
  <div class="card"><div class="row between"><div><b>גרסת האפליקציה</b><div class="muted tiny" style="margin-top:4px">הגרסה המותקנת במכשיר זה.</div></div><b style="color:var(--primary)">V4.2 Alpha 8</b></div></div>
  
@@ -3203,8 +3230,9 @@ completion is excluded from all analytical totals, preventing double-counting.
       <button type="button" onclick="showPage('forecast')"><span>🎯 תחזית מפורטת</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('annual')"><span>◔ עבר וניתוח</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('insurance')"><span>🛡️ ביטוחים</span><small>לחיצה</small></button>
+      <button type="button" onclick="showPage('funds')"><span>🏦 קרנות וחיסכון פנסיוני</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('settings')"><span>⚙️ הגדרות וסנכרון</span><small>לחיצה</small></button>
-      <button type="button" onclick="exportMonthlyPdf()"><span>📄 ייצוא PDF לחודש</span><small>פעולה</small></button>
+      <button type="button" onclick="exportFullExcelReport()"><span>📊 ייצוא דוח Excel מלא</span><small>פעולה</small></button>
     </div>
     <div id="moreAutoToolsMount"></div>
   </div>
@@ -3962,11 +3990,422 @@ function renderInsurancePage(){
  if(activeInsuranceDetail)renderInsuranceDetail();
 }
 
+// ---- Pension / study fund / provident fund tracking (manual entry, with balance history) ----
+const FUND_TYPES={
+  pension:"פנסיה",
+  hishtalmut:"קרן השתלמות",
+  gemel:"קופת גמל",
+  severance:"פיצויים",
+  other:"אחר"
+};
+function fundTypeLabel(t){ return FUND_TYPES[t]||FUND_TYPES.other; }
+function fundLatestEntry(fund){
+  const h=(fund.history||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  return h.length?h[h.length-1]:null;
+}
+function addFund(){
+  ensureV4State();
+  const typeKeys=Object.keys(FUND_TYPES);
+  const typeLabels=typeKeys.map(k=>FUND_TYPES[k]).join(" / ");
+  let typeInput=prompt(`סוג הקרן (${typeLabels})`,"פנסיה");
+  if(typeInput===null) return;
+  const typeKey=typeKeys.find(k=>FUND_TYPES[k]===typeInput.trim())||"other";
+  const provider=prompt("שם החברה המנהלת (למשל מגדל, הראל, כלל, מנורה, אלטשולר שחם)","");
+  if(provider===null) return;
+  const trackName=prompt("שם המסלול (אופציונלי, אפשר להשאיר ריק)","")||"";
+  const fundNumber=prompt("מס' קופה / מס' מ\"ה (אופציונלי, כפי שמופיע בדוח)","")||"";
+  const accountNumber=prompt("מספר חשבון (אופציונלי — אם יש כמה חשבונות תחת אותה קרן, זה השדה שמבדיל ביניהם)","")||"";
+  const balance=Number(prompt("יתרה נוכחית בש\"ח","0"));
+  if(!Number.isFinite(balance)||balance<0) return alert("יתרה לא תקינה");
+  const date=prompt("תאריך היתרה (YYYY-MM-DD)",new Date().toISOString().slice(0,10))||new Date().toISOString().slice(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return alert("תאריך לא תקין");
+  const monthlyDeposit=Number(prompt("הפקדה חודשית משוערת בש\"ח (אופציונלי, אפשר 0)","0"))||0;
+  const notes=prompt("הערות (אופציונלי)","")||"";
+  state.funds.push({
+    id:Date.now()+"-"+Math.random().toString(36).slice(2),
+    type:typeKey, provider:provider.trim(), trackName:trackName.trim(),
+    fundNumber:fundNumber.trim(), accountNumber:accountNumber.trim(),
+    monthlyDeposit, notes:notes.trim(),
+    history:[{date,balance}],
+    createdAt:new Date().toISOString()
+  });
+  save(); renderFundsPage();
+}
+function editFund(id){
+  ensureV4State();
+  const f=state.funds.find(x=>x.id===id); if(!f) return;
+  const typeKeys=Object.keys(FUND_TYPES);
+  const typeLabels=typeKeys.map(k=>FUND_TYPES[k]).join(" / ");
+  let typeInput=prompt(`סוג הקרן (${typeLabels})`,fundTypeLabel(f.type));
+  if(typeInput===null) return;
+  const typeKey=typeKeys.find(k=>FUND_TYPES[k]===typeInput.trim())||f.type;
+  const provider=prompt("שם החברה המנהלת",f.provider||""); if(provider===null) return;
+  const trackName=prompt("שם המסלול (אופציונלי)",f.trackName||"")||"";
+  const fundNumber=prompt("מס' קופה / מס' מ\"ה (אופציונלי)",f.fundNumber||"")||"";
+  const accountNumber=prompt("מספר חשבון (אופציונלי)",f.accountNumber||"")||"";
+  const monthlyDeposit=Number(prompt("הפקדה חודשית משוערת בש\"ח",String(f.monthlyDeposit||0)))||0;
+  const notes=prompt("הערות",f.notes||"")||"";
+  Object.assign(f,{type:typeKey,provider:provider.trim(),trackName:trackName.trim(),fundNumber:fundNumber.trim(),accountNumber:accountNumber.trim(),monthlyDeposit,notes:notes.trim()});
+  save(); renderFundsPage();
+}
+function deleteFund(id){
+  ensureV4State();
+  const f=state.funds.find(x=>x.id===id); if(!f) return;
+  if(!confirm(`למחוק את הקרן "${f.provider} — ${fundTypeLabel(f.type)}"? כל היסטוריית היתרות שלה תימחק גם היא.`)) return;
+  state.funds=state.funds.filter(x=>x.id!==id);
+  save(); renderFundsPage();
+}
+function updateFundBalance(id){
+  ensureV4State();
+  const f=state.funds.find(x=>x.id===id); if(!f) return;
+  const latest=fundLatestEntry(f);
+  const balance=Number(prompt("יתרה מעודכנת בש\"ח",latest?String(latest.balance):"0"));
+  if(!Number.isFinite(balance)||balance<0) return alert("יתרה לא תקינה");
+  const date=prompt("תאריך היתרה (YYYY-MM-DD)",new Date().toISOString().slice(0,10))||new Date().toISOString().slice(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return alert("תאריך לא תקין");
+  f.history=f.history||[];
+  const existing=f.history.find(h=>h.date===date);
+  if(existing) existing.balance=balance;
+  else f.history.push({date,balance});
+  save(); renderFundsPage();
+}
+function fundGrowthChartHTML(history){
+  const rows=(history||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  if(rows.length<2) return "";
+  const max=Math.max(1,...rows.map(r=>r.balance));
+  return `<div class="year-bars" style="grid-template-columns:repeat(${rows.length},minmax(44px,1fr));min-height:150px">
+    ${rows.map(r=>{
+      const h=Math.max(r.balance?4:0,Math.round(r.balance/max*120));
+      const label=new Intl.DateTimeFormat("he-IL",{month:"short",year:"2-digit"}).format(new Date(r.date+"T12:00:00"));
+      return `<div class="month-bar" title="${label}: ${fmt(r.balance)}">
+        <div class="bar-pair" style="height:120px"><div class="bar rc40-trend" style="height:${h}px"></div></div>
+        <div class="month-label">${label}</div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+function renderFundsPage(){
+  ensureV4State();
+  const funds=state.funds||[];
+  const totalsByType={};
+  let grandTotal=0;
+  let latestDate="";
+  funds.forEach(f=>{
+    const latest=fundLatestEntry(f);
+    const val=latest?Number(latest.balance)||0:0;
+    totalsByType[f.type]=(totalsByType[f.type]||0)+val;
+    grandTotal+=val;
+    if(latest && latest.date>latestDate) latestDate=latest.date;
+  });
+  $("fundsGrandTotal").textContent=fmt(grandTotal);
+  $("fundsGrandTotalSub").textContent=funds.length
+    ? (latestDate?`מעודכן לפי הדיווח האחרון מתאריך ${new Intl.DateTimeFormat("he-IL").format(new Date(latestDate+"T12:00:00"))}`:"")
+    : "עדיין לא הוזנו קרנות";
+  const breakdown=$("fundsTypeBreakdown");
+  const typeKeysWithData=Object.keys(totalsByType).filter(k=>totalsByType[k]>0);
+  breakdown.innerHTML=typeKeysWithData.length
+    ? typeKeysWithData.map(k=>`<div class="annual-card"><small>${fundTypeLabel(k)}</small><b>${fmt(totalsByType[k])}</b></div>`).join("")
+    : "";
+
+  const list=$("fundsList");
+  if(!funds.length){
+    list.innerHTML=`<div class="card"><div class="muted" style="text-align:center;padding:20px 10px">עדיין לא הוספת קרנות. לחץ "הוסף קרן" למעלה כדי להתחיל.</div></div>`;
+    return;
+  }
+
+  // Group accounts that belong to the same fund (same type + provider + fund number),
+  // so multiple accounts under one fund show as a single collapsible summary row.
+  const groups=[]; const groupIndex={};
+  funds.forEach(f=>{
+    const key=`${f.type}|${f.provider||""}|${f.fundNumber||""}`;
+    if(!(key in groupIndex)){
+      groupIndex[key]=groups.length;
+      groups.push({type:f.type,provider:f.provider,fundNumber:f.fundNumber,items:[]});
+    }
+    groups[groupIndex[key]].items.push(f);
+  });
+
+  list.innerHTML=groups.map(g=>{
+    if(g.items.length===1) return fundCardHTML(g.items[0]);
+    const total=g.items.reduce((a,f)=>{const l=fundLatestEntry(f);return a+(l?Number(l.balance)||0:0);},0);
+    return `<details class="card app-accordion">
+      <summary style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div>
+          <b>${g.provider||"ללא שם"} — ${fundTypeLabel(g.type)}</b>
+          <div class="muted tiny" style="font-weight:400">${g.items.length} חשבונות${g.fundNumber?` · מס' קופה ${escapeHtml(g.fundNumber)}`:""} · לחץ להרחבה</div>
+        </div>
+        <b style="font-size:19px;white-space:nowrap">${fmt(total)}</b>
+      </summary>
+      <div class="accordion-body" style="display:grid;gap:12px;padding-top:12px">
+        ${g.items.map(fundCardHTML).join("")}
+      </div>
+    </details>`;
+  }).join("");
+}
+function fundCardHTML(f){
+    const latest=fundLatestEntry(f);
+    const dateLabel=latest?new Intl.DateTimeFormat("he-IL").format(new Date(latest.date+"T12:00:00")):"—";
+    const chart=fundGrowthChartHTML(f.history);
+    return `<div class="card">
+      <div class="row between">
+        <div>
+          <b>${f.provider||"ללא שם"} — ${fundTypeLabel(f.type)}</b>
+          ${f.trackName?`<div class="muted tiny">${f.trackName}</div>`:""}
+          ${(f.fundNumber||f.accountNumber)?`<div class="muted tiny">${f.fundNumber?`מס' קופה: ${f.fundNumber}`:""}${f.fundNumber&&f.accountNumber?" · ":""}${f.accountNumber?`מס' חשבון: ${f.accountNumber}`:""}</div>`:""}
+        </div>
+        <div style="text-align:left">
+          <b style="font-size:19px">${fmt(latest?latest.balance:0)}</b>
+          <div class="muted tiny">${dateLabel}</div>
+        </div>
+      </div>
+      ${f.monthlyDeposit?`<div class="muted tiny" style="margin-top:8px">הפקדה חודשית משוערת: ${fmt(f.monthlyDeposit)}</div>`:""}
+      ${f.notes?`<div class="muted tiny" style="margin-top:4px">${f.notes}</div>`:""}
+      ${chart?`<div style="margin-top:12px">${chart}</div>`:`<div class="muted tiny" style="margin-top:10px">עדכן יתרה עוד פעם אחת לפחות כדי לראות גרף צמיחה.</div>`}
+      <div class="ux-att-actions" style="margin-top:12px">
+        <button class="secondary" onclick="updateFundBalance('${f.id}')">עדכן יתרה</button>
+        <button class="secondary" onclick="editFund('${f.id}')">ערוך פרטים</button>
+        <button class="secondary" onclick="deleteFund('${f.id}')">מחק</button>
+      </div>
+    </div>`;
+}
+
+// ---- Fund document import (PDF / Excel / CSV / photo) via the configured AI coach provider ----
+function triggerFundDocUpload(){
+  $("fundDocInput")?.click();
+}
+function fundImportSetStatus(msg,isErr){
+  const el=$("fundImportStatus");
+  if(!el) return;
+  el.textContent=msg||"";
+  el.style.color=isErr?"var(--bad)":"var(--muted)";
+}
+function fundFileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const result=String(reader.result||"");
+      const comma=result.indexOf(",");
+      resolve(comma>=0?result.slice(comma+1):result);
+    };
+    reader.onerror=()=>reject(new Error("קריאת הקובץ נכשלה"));
+    reader.readAsDataURL(file);
+  });
+}
+async function fundDocToParts(file){
+  const name=(file.name||"").toLowerCase();
+  const type=(file.type||"").toLowerCase();
+  if(type.startsWith("image/")){
+    const data=await fundFileToBase64(file);
+    return [{inlineData:{mimeType:type||"image/jpeg",data}}];
+  }
+  if(type==="application/pdf"||name.endsWith(".pdf")){
+    const data=await fundFileToBase64(file);
+    return [{inlineData:{mimeType:"application/pdf",data}}];
+  }
+  if(name.endsWith(".csv")||type==="text/csv"){
+    const text=await file.text();
+    return [{text:"תוכן קובץ ה-CSV:\n"+text.slice(0,20000)}];
+  }
+  if(name.endsWith(".xlsx")||name.endsWith(".xls")||type.includes("spreadsheet")){
+    if(typeof ensureXlsxLoaded!=="function") throw new Error("ספריית קריאת Excel לא זמינה");
+    const XLSXLib=await ensureXlsxLoaded();
+    const buf=await file.arrayBuffer();
+    const wb=XLSXLib.read(buf,{type:"array"});
+    const sheetsText=wb.SheetNames.map(sn=>`גיליון: ${sn}\n`+XLSXLib.utils.sheet_to_csv(wb.Sheets[sn])).join("\n\n");
+    return [{text:"תוכן קובץ האקסל:\n"+sheetsText.slice(0,20000)}];
+  }
+  throw new Error("סוג קובץ לא נתמך. אפשר PDF, Excel, CSV או תמונה.");
+}
+async function extractFundsFromParts(cfg,fileParts){
+  const instruction=`אתה עוזר שמחלץ מידע על קרנות פנסיה, קרנות השתלמות וקופות גמל מתוך מסמכים פיננסיים ישראליים (דוחות שנתיים, ריכוזי מסלקה פנסיונית, צילומי מסך של אפליקציות, טבלאות אקסל/CSV).
+קרא את המסמך המצורף בעיון, כולל שמות העמודות המדויקים שלו. שים לב: מסמכי מסלקה פנסיונית מכילים לרוב עמודות בשם "מס' מ"ה" או "מספר קופה" (מספר מזהה של הקרן/החברה) ו"מספר חשבון" (מספר החשבון הספציפי של העמית) — אלה שני מספרים שונים ושניהם חשובים.
+אם אותה קרן (אותו שם + אותו מס' מ"ה) מופיעה עם כמה "מספרי חשבון" שונים בשורות נפרדות, התייחס לכל שורה כאל קרן/חשבון נפרד בפני עצמו — אל תמזג אותם לרשומה אחת ואל תסכם את הסכומים.
+עבור כל קרן/חשבון החזר אובייקט עם השדות הבאים בדיוק:
+- "type": אחד מהערכים pension / hishtalmut / gemel / severance / other (פנסיה=pension, השתלמות=hishtalmut, גמל=gemel, פיצויים=severance, אחר=other)
+- "provider": שם הקופה/הקרן או החברה המנהלת (מחרוזת, או "" אם לא ידוע)
+- "trackName": שם מסלול ההשקעה אם מצוין, אחרת ""
+- "fundNumber": מספר הקופה/הקרן כפי שמופיע במסמך (למשל עמודה "מס' מ\"ה" או "מספר קופה") — מחרוזת, או "" אם אין כזה שדה במסמך
+- "accountNumber": מספר החשבון הספציפי (עמודה "מספר חשבון" או דומה) — מחרוזת, או "" אם אין כזה שדה במסמך
+- "balance": יתרה כספית כמספר בלבד, ללא סימני מטבע, פסיקים או טקסט
+- "date": תאריך היתרה בפורמט YYYY-MM-DD, רק אם תאריך כזה מופיע בפועל במסמך (למשל "נכון ליום..."). אם מופיע רק חודש ושנה, השתמש ב-01 כיום בחודש. אם אין שום תאריך במסמך — אל תמציא אחד, החזר מחרוזת ריקה "".
+
+חשוב: אל תשאיר שדה ריק רק כי לא חיפשת מספיק טוב — בדוק את כל העמודות במסמך לפני שאתה מחליט ששדה לא קיים. החזר אך ורק מערך JSON תקין (JSON array), ללא הסברים, ללא markdown fences, ללא טקסט נוסף לפני או אחרי. אם לא זיהית אף קרן, החזר [].`;
+  const body={
+    contents:[{role:"user",parts:[{text:instruction},...fileParts]}],
+    generationConfig:{temperature:0.1,maxOutputTokens:2000}
+  };
+  const res=await window.fetchWithTimeout(cfg.url,{
+    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)
+  },30000);
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok){
+    const msg=data?.error?.message||res.statusText||("שגיאה "+res.status);
+    if(/API key not valid|API_KEY_INVALID/i.test(msg)) throw new Error("מפתח Gemini לא תקין. עדכן אותו בהגדרות.");
+    if(/quota|rate limit|RESOURCE_EXHAUSTED/i.test(msg)) throw new Error("חרגת ממכסת Gemini החינמית. נסה שוב מאוחר יותר.");
+    throw new Error(msg);
+  }
+  const parts=data?.candidates?.[0]?.content?.parts||[];
+  let textOut=parts.map(p=>p&&p.text?p.text:"").join("\n").trim();
+  textOut=textOut.replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
+  let parsed;
+  try{ parsed=JSON.parse(textOut); }
+  catch(e){
+    const m=textOut.match(/\[[\s\S]*\]/);
+    if(m) parsed=JSON.parse(m[0]); else throw new Error("לא הצלחתי לפענח את תשובת המודל.");
+  }
+  if(!Array.isArray(parsed)) throw new Error("תשובת המודל לא הייתה במבנה הצפוי.");
+  return parsed.filter(x=>x&&typeof x==="object").map(x=>{
+    const hasRealDate=/^\d{4}-\d{2}-\d{2}$/.test(x.date||"");
+    return {
+      type:Object.keys(FUND_TYPES).includes(x.type)?x.type:"other",
+      provider:String(x.provider||"").trim(),
+      trackName:String(x.trackName||"").trim(),
+      fundNumber:String(x.fundNumber||"").trim(),
+      accountNumber:String(x.accountNumber||"").trim(),
+      balance:Number(x.balance)||0,
+      date:hasRealDate?x.date:new Date().toISOString().slice(0,10),
+      dateGuessed:!hasRealDate
+    };
+  });
+}
+async function onFundDocSelected(event){
+  const file=event.target.files&&event.target.files[0];
+  event.target.value="";
+  if(!file) return;
+  ensureV4State();
+  const cfg=typeof window.providerConfig==="function"?window.providerConfig():null;
+  if(!cfg||!cfg.key){
+    fundImportSetStatus('צריך קודם להגדיר מפתח API בהגדרות → "מאמן פיננסי מתקדם".',true);
+    return;
+  }
+  if(cfg.provider!=="gemini"){
+    fundImportSetStatus("טעינת מסמכים נתמכת כרגע רק עם ספק Gemini. עבור להגדרות ובחר Gemini.",true);
+    return;
+  }
+  if(file.size>15*1024*1024){
+    fundImportSetStatus("הקובץ גדול מדי (מעל 15MB).",true);
+    return;
+  }
+  fundImportSetStatus("קורא את הקובץ…");
+  try{
+    const fileParts=await fundDocToParts(file);
+    fundImportSetStatus("שולח למודל לניתוח… (עד 30 שניות)");
+    const items=await extractFundsFromParts(cfg,fileParts);
+    if(!items.length){
+      fundImportSetStatus("לא זוהו קרנות במסמך. אפשר לנסות קובץ אחר או להזין ידנית.",true);
+      return;
+    }
+    fundImportSetStatus(`זוהו ${items.length} רשומות. בדוק ואשר למטה לפני שמירה.`);
+    renderFundImportReview(items);
+  }catch(e){
+    console.error(e);
+    fundImportSetStatus("שגיאה: "+(e.message||e),true);
+  }
+}
+function renderFundImportReview(items){
+  ensureV4State();
+  const host=$("fundImportReview");
+  if(!host) return;
+  const existingOptionLabel=f=>`${escapeHtml(f.provider||"ללא שם")} — ${fundTypeLabel(f.type)}${f.accountNumber?` (חשבון ${escapeHtml(f.accountNumber)})`:""}`;
+  const existingOptionsFor=item=>state.funds.map(f=>{
+    const auto=item.accountNumber && f.accountNumber && f.accountNumber===item.accountNumber;
+    return `<option value="${f.id}" ${auto?"selected":""}>${existingOptionLabel(f)}</option>`;
+  }).join("");
+  host.innerHTML=`
+    <div class="card">
+      <div class="row between"><b>תוצאות מהמסמך — בדוק ואשר</b></div>
+      <div class="muted tiny" style="margin-top:4px">בדוק שהנתונים נכונים לפני ייבוא. אפשר לתקן כל שדה, לבטל סימון לרשומה, או לשייך אותה לקרן קיימת במקום ליצור חדשה.</div>
+    </div>
+    <div id="fundImportRows">
+      ${items.map((item,i)=>{
+        const hasMatch=item.accountNumber && state.funds.some(f=>f.accountNumber===item.accountNumber);
+        return `
+        <div class="card" data-idx="${i}">
+          <div class="history-controls">
+            <label>סוג<select class="fi-type">
+              ${Object.keys(FUND_TYPES).map(k=>`<option value="${k}" ${k===item.type?"selected":""}>${FUND_TYPES[k]}</option>`).join("")}
+            </select></label>
+            <label>שיוך<select class="fi-target">
+              <option value="__new__" ${hasMatch?"":"selected"}>קרן חדשה</option>
+              ${existingOptionsFor(item)}
+            </select></label>
+          </div>
+          <div class="history-controls" style="margin-top:8px">
+            <label>חברה מנהלת<input class="fi-provider" type="text" value="${escapeHtml(item.provider)}"></label>
+            <label>מסלול<input class="fi-track" type="text" value="${escapeHtml(item.trackName)}"></label>
+          </div>
+          <div class="history-controls" style="margin-top:8px">
+            <label>מס' קופה<input class="fi-fundnum" type="text" value="${escapeHtml(item.fundNumber||"")}"></label>
+            <label>מספר חשבון<input class="fi-accnum" type="text" value="${escapeHtml(item.accountNumber||"")}"></label>
+          </div>
+          <div class="history-controls" style="margin-top:8px">
+            <label>יתרה<input class="fi-balance" type="number" value="${item.balance}"></label>
+            <label>תאריך${item.dateGuessed?' <span class="muted tiny">(לא נמצא במסמך — הושלם להיום, בדוק)</span>':""}<input class="fi-date" type="date" value="${item.date}" style="${item.dateGuessed?"border-color:var(--warn)":""}"></label>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:10px"><input type="checkbox" class="fi-include" checked> כלול בייבוא</label>
+        </div>
+      `;}).join("")}
+    </div>
+    <div class="card">
+      <div class="ux-att-actions">
+        <button type="button" onclick="applyFundImport()">ייבא את הנבחרים</button>
+        <button type="button" class="secondary" onclick="cancelFundImport()">ביטול</button>
+      </div>
+    </div>`;
+  host.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function cancelFundImport(){
+  const host=$("fundImportReview");
+  if(host) host.innerHTML="";
+  fundImportSetStatus("");
+}
+function applyFundImport(){
+  ensureV4State();
+  const container=$("fundImportRows");
+  if(!container) return;
+  let count=0;
+  container.querySelectorAll("[data-idx]").forEach(row=>{
+    const include=row.querySelector(".fi-include")?.checked;
+    if(!include) return;
+    const type=row.querySelector(".fi-type")?.value||"other";
+    const target=row.querySelector(".fi-target")?.value||"__new__";
+    const provider=(row.querySelector(".fi-provider")?.value||"").trim();
+    const trackName=(row.querySelector(".fi-track")?.value||"").trim();
+    const fundNumber=(row.querySelector(".fi-fundnum")?.value||"").trim();
+    const accountNumber=(row.querySelector(".fi-accnum")?.value||"").trim();
+    const balance=Number(row.querySelector(".fi-balance")?.value);
+    const date=row.querySelector(".fi-date")?.value;
+    if(!Number.isFinite(balance)||balance<0||!/^\d{4}-\d{2}-\d{2}$/.test(date||"")) return;
+    if(target==="__new__"){
+      state.funds.push({
+        id:Date.now()+"-"+Math.random().toString(36).slice(2)+"-"+count,
+        type,provider,trackName,fundNumber,accountNumber,monthlyDeposit:0,notes:"",
+        history:[{date,balance}],createdAt:new Date().toISOString()
+      });
+    }else{
+      const f=state.funds.find(x=>x.id===target);
+      if(f){
+        if(fundNumber && !f.fundNumber) f.fundNumber=fundNumber;
+        if(accountNumber && !f.accountNumber) f.accountNumber=accountNumber;
+        f.history=f.history||[];
+        const existing=f.history.find(h=>h.date===date);
+        if(existing) existing.balance=balance; else f.history.push({date,balance});
+      }
+    }
+    count++;
+  });
+  save();
+  cancelFundImport();
+  renderFundsPage();
+  alert(count?`יובאו ${count} רשומות בהצלחה.`:"לא נבחרו רשומות לייבוא.");
+}
+
 function showPage(name){
  $("budgetPage")?.classList.toggle("active",name==="budget");
  $("forecastPage")?.classList.toggle("active",name==="forecast");
  $("annualPage")?.classList.toggle("active",name==="annual");
  $("insurancePage")?.classList.toggle("active",name==="insurance");
+ $("fundsPage")?.classList.toggle("active",name==="funds");
  $("settingsPage")?.classList.toggle("active",name==="settings");
  $("coachPage")?.classList.toggle("active",name==="coach");
  $("actionsPage")?.classList.toggle("active",name==="actions");
@@ -3991,6 +4430,7 @@ function showPage(name){
 
  if(name==="annual") renderAnnual();
  if(name==="insurance"){insuranceYearOptions();renderInsurancePage();}
+ if(name==="funds"){ try{ renderFundsPage(); }catch(e){ console.error(e); } }
  if(name==="coach"){
    try{
      if(typeof renderCoachPage==="function") renderCoachPage();
@@ -4578,6 +5018,7 @@ function ensureV4State(){
  if("coachApiProvider" in state.settings) delete state.settings.coachApiProvider;
  if(!Array.isArray(state.changeLog)) state.changeLog=[];
  if(!Array.isArray(state.autoBackups)) state.autoBackups=[];
+ if(!Array.isArray(state.funds)) state.funds=[];
 }
 
 const KIBBUTZ_FORECAST_START="2026-09";
@@ -6430,6 +6871,120 @@ function editSettings(){
  save();render();
 }
 function exportBackup(){let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="budget-v4-backup.json";a.click();URL.revokeObjectURL(a.href)}
+
+async function exportFullExcelReport(){
+  try{
+    if(!window.XLSX){
+      if(typeof ensureXlsxLoaded==="function") await ensureXlsxLoaded();
+      if(!window.XLSX) throw new Error("ספריית XLSX לא נטענה. ודא שיש חיבור לאינטרנט ונסה שוב.");
+    }
+    ensureV4State();
+    const wb=XLSX.utils.book_new();
+    wb.Workbook=wb.Workbook||{};
+    wb.Workbook.Views=[{RTL:true}];
+
+    const mk=($("month")&&$("month").value)||localCurrentMonthKey();
+    const txAll=allTx();
+    const txForMonth=m=>txAll.filter(x=>budgetMonth(x)===m);
+    const rowFor=x=>{
+      const isIncome=(x.type||"").toLowerCase()==="income";
+      return [
+        (x.date||"").slice(0,10),
+        isIncome?"הכנסה":"הוצאה",
+        isIncome?(x.category||""):mapCat(x.category),
+        isIncome?incomeAmount(x):expenseAmount(x),
+        x.note||""
+      ];
+    };
+
+    const curTx=txForMonth(mk);
+    const curIncome=curTx.filter(x=>(x.type||"").toLowerCase()==="income").reduce((a,x)=>a+incomeAmount(x),0);
+    const curExpense=curTx.filter(x=>(x.type||"").toLowerCase()==="expense").reduce((a,x)=>a+expenseAmount(x),0);
+    const fundsTotal=(state.funds||[]).reduce((a,f)=>{const l=fundLatestEntry(f);return a+(l?Number(l.balance)||0:0);},0);
+    const fundsByType={};
+    (state.funds||[]).forEach(f=>{const l=fundLatestEntry(f);fundsByType[f.type]=(fundsByType[f.type]||0)+(l?Number(l.balance)||0:0);});
+
+    // ---- 1. סיכום ----
+    const summaryRows=[
+      ["דוח מלא — מנהל התקציב שלי"],
+      ["נוצר בתאריך",new Date().toLocaleString("he-IL")],
+      [],
+      ["חודש נוכחי",monthHeb(mk)+" "+mk.slice(0,4)],
+      ["הכנסות החודש",curIncome],
+      ["הוצאות החודש",curExpense],
+      ["מאזן החודש",curIncome-curExpense],
+      [],
+      ["סה\"כ חיסכון פנסיוני (כל הקרנות)",fundsTotal],
+      ...Object.keys(fundsByType).map(k=>["  מתוכו "+fundTypeLabel(k),fundsByType[k]])
+    ];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summaryRows),"סיכום");
+
+    // ---- 2. עו"ש (חודש נוכחי) ----
+    const checkingRows=[["תאריך","סוג","קטגוריה","סכום","הערה"]];
+    curTx.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(x=>checkingRows.push(rowFor(x)));
+    checkingRows.push([]);
+    checkingRows.push(["סה\"כ הכנסות","","",curIncome,""]);
+    checkingRows.push(["סה\"כ הוצאות","","",curExpense,""]);
+    checkingRows.push(["מאזן","","",curIncome-curExpense,""]);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(checkingRows),'עו"ש');
+
+    // ---- 3. עבר וניתוח (כל החודשים ההיסטוריים) ----
+    const years=[...new Set(txAll.map(x=>(x.date||"").slice(0,4)).filter(Boolean))].sort();
+    const historyRows=[["חודש","הכנסות","הוצאות","חיסכון","מאזן"]];
+    years.forEach(y=>{
+      annualData(y).filter(r=>r.count>0).forEach(r=>{
+        historyRows.push([r.label+" "+y,r.income,r.expenses,r.savings,r.balance]);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(historyRows),"עבר וניתוח");
+
+    // ---- 4. ביטוחים (פילוח חודשי) ----
+    const insMonthly={};
+    txAll.forEach(x=>{
+      if((x.type||"").toLowerCase()!=="expense") return;
+      const bucket=insuranceBucket(x); if(!bucket) return;
+      const mkey=(x.date||"").slice(0,7);
+      insMonthly[mkey]=insMonthly[mkey]||{ilan:0,children:0,car:0,health:0};
+      insMonthly[mkey][bucket]+=expenseAmount(x);
+    });
+    const insRows=[["חודש","ביטוחים - אילן","ביטוחים - ילדים","ביטוחי רכב","קופת חולים","סה\"כ"]];
+    Object.keys(insMonthly).sort().forEach(mkey=>{
+      const v=insMonthly[mkey],total=v.ilan+v.children+v.car+v.health;
+      insRows.push([mkey,v.ilan,v.children,v.car,v.health,total]);
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(insRows),"ביטוחים");
+
+    // ---- 5. קרנות פנסיה והשתלמות ----
+    const fundsRows=[["סוג","חברה מנהלת","מסלול","מס' קופה","מספר חשבון","יתרה נוכחית","תאריך עדכון","הפקדה חודשית משוערת","הערות"]];
+    (state.funds||[]).forEach(f=>{
+      const latest=fundLatestEntry(f);
+      fundsRows.push([fundTypeLabel(f.type),f.provider||"",f.trackName||"",f.fundNumber||"",f.accountNumber||"",latest?latest.balance:0,latest?latest.date:"",f.monthlyDeposit||0,f.notes||""]);
+    });
+    if((state.funds||[]).length) fundsRows.push([],["סה\"כ","","","","",fundsTotal,"","",""]);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(fundsRows),"קרנות");
+
+    // ---- 6. קרנות - היסטוריית יתרות (לגרפי צמיחה בעצמך ב-Excel) ----
+    const fundsHistRows=[["חברה מנהלת","סוג","מספר חשבון","תאריך","יתרה"]];
+    (state.funds||[]).forEach(f=>{
+      (f.history||[]).slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(h=>{
+        fundsHistRows.push([f.provider||"",fundTypeLabel(f.type),f.accountNumber||"",h.date,h.balance]);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(fundsHistRows),"קרנות - היסטוריה");
+
+    // ---- 7. תנועות מלאות (כל הזמן — לניתוח/פיבוט עצמאי) ----
+    const allRows=[["תאריך","סוג","קטגוריה","סכום","הערה"]];
+    txAll.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(x=>allRows.push(rowFor(x)));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(allRows),"תנועות מלאות");
+
+    XLSX.writeFile(wb,`דוח-תקציב-מלא-${new Date().toISOString().slice(0,10)}.xlsx`);
+  }catch(e){
+    console.error(e);
+    alert("שגיאה בייצוא הדוח: "+(e.message||e));
+  }
+}
+window.exportFullExcelReport=exportFullExcelReport;
+
 $("csvFile").onchange=e=>{let f=e.target.files[0];if(!f)return;if(!f.name.toLowerCase().endsWith(".csv")){alert("יש לייצא מ־Spendee קובץ CSV. קובץ Excel ‏(.xlsx) אינו נתמך בייבוא זה.");e.target.value="";return}let r=new FileReader();r.onload=()=>{try{ingestCSV(r.result)}catch(err){alert("לא ניתן לייבא את הקובץ: "+err.message)}};r.readAsText(f,"UTF-8")}
 setTimeout(updateUndoSpendeeButton,0);
 
@@ -10842,6 +11397,10 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
       clearTimeout(t);
     }
   }
+  // Exposed so the fund-document-import feature (defined elsewhere) can reuse the
+  // same provider/key resolution and timeout-guarded fetch as the AI coach.
+  window.providerConfig = providerConfig;
+  window.fetchWithTimeout = fetchWithTimeout;
 
   window.askCoachAI = async function(){
     const box=$("coachAiBox");
