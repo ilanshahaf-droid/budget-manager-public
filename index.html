@@ -11513,7 +11513,9 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
       return {
         provider: "groq",
         url: "https://api.groq.com/openai/v1/chat/completions",
-        model: "llama-3.3-70b-versatile",
+        // Groq deprecated llama-3.3-70b-versatile (decommissioned Aug 16, 2026);
+        // openai/gpt-oss-120b is their recommended free-tier replacement.
+        model: "openai/gpt-oss-120b",
         key, name: "Groq"
       };
     }
