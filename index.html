@@ -3548,6 +3548,34 @@ async function uploadStateToCloud(manual=false){
    if(cloudPendingAfterSync){cloudPendingAfterSync=false;scheduleCloudSave()}
  }
 }
+// Safety net against exactly what just happened to Ilan: silently overwriting a device's
+// real local data with a cloud copy that's suspiciously emptied (whatever the original
+// cause — another app sharing the same Supabase project, a stray delete, anything).
+// Always snapshots the at-risk local state first, then — only if the incoming data looks
+// drastically smaller than what's already here — asks before actually applying it.
+function stateRichness(s){
+  try{ return JSON.stringify(s).length; }catch(e){ return 0; }
+}
+async function safeguardBeforeApplyingCloudState(incomingState){
+  const oldSize=stateRichness(state);
+  const newSize=stateRichness(incomingState);
+  const oldLooksReal=oldSize>2000; // below this, there's nothing meaningful at risk yet
+  const suspicious=oldLooksReal && newSize<oldSize*0.4;
+  if(!suspicious) return true;
+  try{ if(typeof window.autoBackupBeforeImport==="function") window.autoBackupBeforeImport("cloud-sync-safety"); }catch(e){}
+  const proceed=confirm(
+    "הנתונים שמגיעים מהענן נראים קטנים משמעותית ממה שיש כרגע במכשיר הזה (בערך "+
+    Math.round(newSize/1024)+"KB מול "+Math.round(oldSize/1024)+"KB).\n\n"+
+    "לפני שהחלטת, המכשיר גיבה את מה שיש בו כרגע (הגדרות ← גיבוי ושחזור ← שחזור גיבוי אוטומטי אחרון).\n\n"+
+    "אישור = בכל זאת להחליף בנתוני הענן.\nביטול = לשמור את נתוני המכשיר הזה ולהעלות אותם לענן במקום."
+  );
+  if(!proceed){
+    setCloudStatus("נתוני הענן נראו חשודים כריקים — שמרתי את נתוני המכשיר הזה בענן במקום להחליף אותם.","warn");
+    try{ await uploadStateToCloud(false); }catch(e){}
+    return false;
+  }
+  return true;
+}
 async function downloadStateFromCloud(manual=false){
  if(!supabaseClient||!cloudUserObj){if(manual)alert("יש להתחבר תחילה.");return}
  setCloudStatus("טוען נתונים מהענן...","warn");
@@ -3557,6 +3585,7 @@ async function downloadStateFromCloud(manual=false){
    return;
  }
  if(!row.data || typeof row.data!=="object"){setCloudStatus("הנתונים בענן אינם בפורמט תקין.","bad");return}
+ if(!(await safeguardBeforeApplyingCloudState(row.data))) return;
  cloudApplying=true;
  state=row.data;
  localStorage.setItem("budgetV36",JSON.stringify(state));
@@ -3618,6 +3647,7 @@ function subscribeCloudRealtime(){
       setCloudStatus("הגיע עדכון ממכשיר אחר בזמן שיש כאן שינוי שטרם נשמר. לא בוצעה דריסה אוטומטית.","warn");
       return;
     }
+    if(!(await safeguardBeforeApplyingCloudState(remote.data))) return;
     cloudApplying=true;
     state=remote.data;
     localStorage.setItem("budgetV36",JSON.stringify(state));
@@ -10050,6 +10080,19 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
     }catch(e){ console.warn("autoBackup", e); }
   };
 
+  // A lightweight rolling safety net independent of imports/sync: once per calendar day,
+  // snapshot local state even if nothing risky was detected. This is what "no local backup
+  // was available" should never happen again from — most disasters aren't caught by any
+  // single specific trigger, but a daily snapshot bounds the damage to at most one day.
+  window.dailyAutoBackupIfNeeded = function(){
+    try{
+      const today = new Date().toISOString().slice(0,10);
+      if(localStorage.getItem("budgetV36_lastDailyBackup") === today) return;
+      window.autoBackupBeforeImport("daily");
+      localStorage.setItem("budgetV36_lastDailyBackup", today);
+    }catch(e){ console.warn("dailyAutoBackup", e); }
+  };
+
   window.restoreLastAutoBackup = function(){
     try{
       let list = (state&&state.autoBackups) || JSON.parse(localStorage.getItem("budgetV36_autoBackups")||"[]");
@@ -10264,6 +10307,7 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
     try{ renderWeeklySummary(); }catch(e){}
     try{ injectRestoreBtn(); }catch(e){}
     try{ if(typeof window.refreshUxPanels==="function") window.refreshUxPanels(); }catch(e){}
+    try{ window.dailyAutoBackupIfNeeded(); }catch(e){}
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", ()=>setTimeout(boot,80));
   else setTimeout(boot,80);
