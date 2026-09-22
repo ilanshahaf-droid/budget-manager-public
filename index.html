@@ -3398,9 +3398,34 @@ function endAppBoot(){
 window.endAppBoot = endAppBoot;
 window.scheduleBootRender = scheduleBootRender;
 
+// Shared, quota-safe writer for the main state blob. Returns true/false instead of
+// throwing, so a full browser storage quota degrades gracefully (drop the heaviest,
+// most disposable field and retry) instead of surfacing a raw uncaught-exception alert
+// mid-import like Ilan hit.
+function saveStateToLocalStorage(){
+  try{
+    localStorage.setItem("budgetV36",JSON.stringify(state));
+    return true;
+  }catch(e){
+    if(e && (e.name==="QuotaExceededError" || e.code===22)){
+      try{
+        const trimmed=JSON.parse(JSON.stringify(state));
+        trimmed.autoBackups=[]; // largest and most disposable field — safe to drop, it's not real user data
+        localStorage.setItem("budgetV36",JSON.stringify(trimmed));
+        console.warn("Storage quota exceeded — dropped local auto-backups to make room for the real data.");
+        return true;
+      }catch(e2){
+        console.error("Still over storage quota after dropping backups", e2);
+        return false;
+      }
+    }
+    console.error(e);
+    return false;
+  }
+}
 function save(markDirty=true){
  if(typeof invalidateAllTxCache==="function") invalidateAllTxCache();
- localStorage.setItem("budgetV36",JSON.stringify(state));
+ saveStateToLocalStorage();
  if(!cloudApplying && markDirty){
    markLocalChange();
    scheduleCloudSave();
@@ -3588,7 +3613,7 @@ async function downloadStateFromCloud(manual=false){
  if(!(await safeguardBeforeApplyingCloudState(row.data))) return;
  cloudApplying=true;
  state=row.data;
- localStorage.setItem("budgetV36",JSON.stringify(state));
+ saveStateToLocalStorage();
  cloudApplying=false;
  cloudRowId=row.id;
  localStorage.setItem(cloudReadyKey(),"1");
@@ -3650,7 +3675,7 @@ function subscribeCloudRealtime(){
     if(!(await safeguardBeforeApplyingCloudState(remote.data))) return;
     cloudApplying=true;
     state=remote.data;
-    localStorage.setItem("budgetV36",JSON.stringify(state));
+    saveStateToLocalStorage();
     cloudApplying=false;
     cloudRowId=remote.id||cloudRowId;
     localStorage.setItem("budgetCloudLastSync",remote.updated_at||new Date().toISOString());
@@ -5117,6 +5142,25 @@ function ensureV4State(){
  if("coachApiProvider" in state.settings) delete state.settings.coachApiProvider;
  if(!Array.isArray(state.changeLog)) state.changeLog=[];
  if(!Array.isArray(state.autoBackups)) state.autoBackups=[];
+ // One-time cleanup: older backups could nest earlier backups inside themselves
+ // (a bug — each snapshot embedded the whole backup list as it stood at the time),
+ // which snowballed into huge stored data and filled up the browser's storage quota.
+ // Strip any nested backups-within-backups and cap the list, freeing that space back up.
+ if(state.autoBackups.length){
+   let changed=false;
+   state.autoBackups=state.autoBackups.slice(0,3).map(b=>{
+     if(b && b.state && "autoBackups" in b.state){
+       b={...b, state:{...b.state}};
+       delete b.state.autoBackups;
+       changed=true;
+     }
+     return b;
+   });
+   if(changed){
+     try{ localStorage.setItem("budgetV36_autoBackups", JSON.stringify(state.autoBackups)); }
+     catch(e){ state.autoBackups=state.autoBackups.slice(0,1); try{ localStorage.setItem("budgetV36_autoBackups", JSON.stringify(state.autoBackups)); }catch(e2){} }
+   }
+ }
  if(!Array.isArray(state.funds)) state.funds=[];
 }
 
@@ -9654,7 +9698,8 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
       state.changeLog.unshift({t:new Date().toISOString(), msg:String(msg||"")});
       if(state.changeLog.length>30) state.changeLog.length=30;
       // don't force cloud for every log line
-      localStorage.setItem("budgetV36", JSON.stringify(state));
+      if(typeof saveStateToLocalStorage==="function") saveStateToLocalStorage();
+      else localStorage.setItem("budgetV36", JSON.stringify(state));
       renderChangeLog();
     }catch(e){}
   }
@@ -10061,21 +10106,39 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
     return new Intl.NumberFormat("he-IL",{style:"currency",currency:"ILS",maximumFractionDigits:0}).format(Number(n||0));
   }
 
-  // ---- Auto backup (last 5 snapshots in localStorage) ----
+  // ---- Auto backup (last 3 snapshots in localStorage) ----
   window.autoBackupBeforeImport = function(reason){
     try{
       if(typeof ensureV4State==="function") ensureV4State();
+      const stateCopy = JSON.parse(JSON.stringify(state));
+      // Critical: never let a snapshot embed the backup list itself, or each new
+      // backup nests every previous one inside it — exponential growth that's
+      // exactly what filled up the browser's storage quota.
+      delete stateCopy.autoBackups;
       const snap = {
         when: new Date().toISOString(),
         reason: reason||"import",
-        state: JSON.parse(JSON.stringify(state))
+        state: stateCopy
       };
       state.autoBackups = state.autoBackups || [];
       state.autoBackups.unshift(snap);
-      if(state.autoBackups.length>5) state.autoBackups.length=5;
+      if(state.autoBackups.length>3) state.autoBackups.length=3;
       // Persist backups separately too (in case import corrupts main state mid-way)
-      localStorage.setItem("budgetV36_autoBackups", JSON.stringify(state.autoBackups));
-      localStorage.setItem("budgetV36", JSON.stringify(state));
+      try{
+        localStorage.setItem("budgetV36_autoBackups", JSON.stringify(state.autoBackups));
+      }catch(quotaErr){
+        // Still too big even after the nesting fix (e.g. a very large transaction
+        // history) — drop to just the most recent backup rather than losing all of them.
+        state.autoBackups = state.autoBackups.slice(0,1);
+        try{ localStorage.setItem("budgetV36_autoBackups", JSON.stringify(state.autoBackups)); }catch(e2){ state.autoBackups=[]; }
+      }
+      if(!saveStateToLocalStorage()){
+        // Saving the main state also hit the quota. Drop the backup list from the
+        // main blob (it's already saved separately above) and try once more so the
+        // real data — not just the backup — actually gets persisted.
+        state.autoBackups=[];
+        saveStateToLocalStorage();
+      }
       if(typeof pushChangeLog==="function") pushChangeLog("גיבוי אוטומטי לפני ייבוא ("+reason+")");
     }catch(e){ console.warn("autoBackup", e); }
   };
@@ -10100,7 +10163,8 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
       const snap=list[0];
       if(!confirm("לשחזר את הגיבוי האוטומטי מ-"+new Date(snap.when).toLocaleString("he-IL")+"?")) return;
       state=snap.state;
-      localStorage.setItem("budgetV36", JSON.stringify(state));
+      if(typeof saveStateToLocalStorage==="function") saveStateToLocalStorage();
+      else localStorage.setItem("budgetV36", JSON.stringify(state));
       location.reload();
     }catch(e){ alert("שחזור נכשל: "+e.message); }
   };
