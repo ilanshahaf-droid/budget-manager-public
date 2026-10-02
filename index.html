@@ -6889,82 +6889,6 @@ function renderAnnual(){
  if(typeof window.histRefresh==="function") window.histRefresh();
 }
 
-// ---- Shared helpers for the unified "עבר וניתוח" category views ----
-function histCatOf(x,type){
-  let c=x.category||"ללא קטגוריה";
-  if(type==="expense") c=typeof mapCat==="function"?mapCat(c):c;
-  return c;
-}
-function histAmountOf(x,type){
-  return type==="income"
-    ? (typeof incomeAmount==="function"?incomeAmount(x):Math.max(0,Number(x.amount||0)))
-    : (typeof expenseAmount==="function"?expenseAmount(x):Math.abs(Number(x.amount||0)));
-}
-function histPopulateCategorySelect(sel,type){
-  if(!sel) return;
-  const totals={};
-  allTx().filter(x=>(x.type||"").toLowerCase()===type).forEach(x=>{
-    const c=histCatOf(x,type);
-    if(type==="expense"){
-      const nc=typeof norm==="function"?norm(c):c;
-      if(nc==="תכנית חיסכון"||nc==="חיסכון") return;
-    }
-    const amount=histAmountOf(x,type);
-    if(amount>0) totals[c]=(totals[c]||0)+amount;
-  });
-  const cats=Object.keys(totals).sort((a,b)=>totals[b]-totals[a]);
-  const prev=sel.value;
-  sel.innerHTML=cats.length
-    ? cats.map(c=>`<option value="${String(c).replace(/"/g,"&quot;")}">${c}</option>`).join("")
-    : `<option value="">אין נתונים</option>`;
-  if(cats.includes(prev)) sel.value=prev;
-}
-function histTrendRows(category,type,period){
-  const tx=allTx().filter(x=>(x.type||"").toLowerCase()===type && histCatOf(x,type)===category);
-  if(period==="monthly"){
-    const allKeys=allTx().map(x=>(x.date||"").slice(0,7)).filter(k=>/^\d{4}-\d{2}$/.test(k)).sort();
-    const current=typeof localCurrentMonthKey==="function"?localCurrentMonthKey():new Date().toISOString().slice(0,7);
-    let end=allKeys.length?allKeys[allKeys.length-1]:current;
-    if(end<current) end=current;
-    const monthKeys=Array.from({length:12},(_,i)=>monthKeyShiftKey(end,i-11));
-    return monthKeys.map(k=>{
-      const value=tx.filter(x=>((typeof budgetMonth==="function"?budgetMonth(x):(x.date||"").slice(0,7))===k)).reduce((a,x)=>a+histAmountOf(x,type),0);
-      const label=new Intl.DateTimeFormat("he-IL",{month:"short",year:"2-digit"}).format(new Date(k+"-01T12:00:00"));
-      return {key:k,label,value};
-    });
-  }
-  const years=new Set(allTx().map(x=>(x.date||"").slice(0,4)).filter(Boolean));
-  years.add(String(new Date().getFullYear()));
-  const sortedYears=[...years].sort();
-  return sortedYears.map(y=>{
-    const value=tx.filter(x=>(x.date||"").slice(0,4)===y).reduce((a,x)=>a+histAmountOf(x,type),0);
-    return {key:y,label:y,value};
-  });
-}
-function histBarChartHTML(rows){
-  const max=Math.max(1,...rows.map(r=>r.value));
-  return `<div class="year-bars" style="grid-template-columns:repeat(${rows.length},minmax(44px,1fr))">
-      ${rows.map(r=>{
-        const h=Math.max(r.value?4:0,Math.round(r.value/max*210));
-        return `<div class="month-bar" title="${r.label}: ${fmt(r.value)}">
-          <div class="bar-pair"><div class="bar rc40-trend" style="height:${h}px"></div></div>
-          <div class="month-label">${r.label}</div>
-        </div>`;
-      }).join("")}
-    </div>`;
-}
-function histRowListHTML(rows){
-  if(!rows.length || !rows.some(r=>r.value>0)){
-    return `<div class="rc36-empty">אין נתונים להצגה.</div>`;
-  }
-  return `<div class="rc36-cat-list">${[...rows].reverse().map(r=>`
-    <div class="rc36-cat-row">
-      <span class="rc36-cat-dot" style="background:var(--primary)"></span>
-      <span class="rc36-cat-name">${r.label}</span>
-      <span class="rc36-cat-value"><b>${fmt(r.value)}</b></span>
-    </div>`).join("")}</div>`;
-}
-
 function addManual(){let a=Number($("mamount").value);if(!a||!$("mdate").value)return alert("יש להזין תאריך וסכום");state.manual.push({date:$("mdate").value+"T12:00:00",type:$("mtype").value,category:$("mcat").value,amount:$("mtype").value=="Expense"?-a:a,note:$("mnote").value,source:"ידני"});save();render();$("mamount").value="";$("mnote").value=""}
 function editSafetyBuffer(){
  ensureV4State();
@@ -7228,7 +7152,14 @@ $("backupFile").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new File
  state=restored;save();init();showPage("budget");alert("הגיבוי שוחזר בהצלחה");
  }catch(err){alert("לא ניתן לשחזר את הגיבוי: "+err.message)}};r.readAsText(f)}
 $("month").onchange=render;
-$("annualYear").onchange=renderAnnual;
+$("annualYear").onchange=function(){
+  // Keep the month-mode year selector in sync so there's only one "which year" the
+  // person has to track, instead of two fields that can silently drift apart.
+  const monthYearSel=document.getElementById("historyMonthYear");
+  if(monthYearSel) monthYearSel.value=this.value;
+  renderAnnual();
+  if(typeof window.renderTopChart==="function") window.renderTopChart();
+};
 window.addEventListener("online",()=>{setCloudStatus("החיבור חזר — מסנכרן...","warn");autoSyncState("online")});
 window.addEventListener("offline",()=>setCloudStatus("אין אינטרנט — אפשר להמשיך לעבוד; השינויים יסונכרנו כשהחיבור יחזור.","warn"));
 window.addEventListener("focus",()=>autoSyncState("focus"));
@@ -7393,9 +7324,9 @@ if ("serviceWorker" in navigator) {
       </div>
       <div id="historyMonthControls" class="history-controls" style="margin-top:14px">
         <label>שנה<select id="historyMonthYear"></select></label>
-        <label>חודש<select id="historyMonthSelect"></select></label>
+        <label id="historyMonthWrap">חודש<select id="historyMonthSelect"></select></label>
       </div>
-      <div id="historyYearControls" class="history-controls hidden" style="margin-top:14px"></div>
+      <div id="historyYearControls" class="hidden"></div>
       <div class="history-controls" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
         <label>תצוגה<select id="histView" onchange="histOnViewChange()">
           <option value="general">כללי</option>
@@ -7420,18 +7351,22 @@ if ("serviceWorker" in navigator) {
     page.appendChild(yearView);
     yearView.classList.add("hidden");
 
-    // The year selector (and its "data through" note) were part of the original static
-    // year content; move them into the always-visible controls card so they stay
-    // reachable in the category view too, and drop the now-empty shell they leave behind.
+    // annualYear used to be shown as its own separate "שנה להצגה" field — confusing
+    // next to the "שנה" field above, since the two were only sometimes kept in sync.
+    // There is now exactly one visible year field (historyMonthYear); annualYear still
+    // exists and still drives the year-mode rendering underneath, kept in sync with it
+    // programmatically, but its own label is hidden so it doesn't appear as a second
+    // "year" control. Its "data through" note moves up next to the one visible year field.
     const yearRow=$id("annualYear")?.closest("label");
     const throughEl=$id("annualThrough");
     const oldShell=yearRow?.parentElement;
-    if(yearRow) $id("historyYearControls").appendChild(yearRow);
-    if(throughEl) $id("historyYearControls").appendChild(throughEl);
+    if(yearRow){ yearRow.style.display="none"; $id("historyYearControls").appendChild(yearRow); }
+    if(throughEl){ throughEl.style.cssText="display:block;margin-top:8px"; $id("historyMonthControls").insertAdjacentElement("afterend",throughEl); }
     if(oldShell && !oldShell.children.length) oldShell.remove();
 
-    // Shared category views (breakdown for the current period + trend for one category
-    // over time). Built once here so both the month and year modes can reuse it.
+    // Shared category view: full breakdown of the current period across all categories.
+    // (A category's trend ACROSS periods is handled by the comparison chart above —
+    // its own "קטגוריה" selector there covers that, so it isn't duplicated here too.)
     const catWrap=document.createElement("div");
     catWrap.id="histCategoryWrap";
     catWrap.className="hidden";
@@ -7439,18 +7374,6 @@ if ("serviceWorker" in navigator) {
       <div class="card">
         <div class="row between"><b id="histCatPanelTitle">פילוח לפי קטגוריה</b></div>
         <div id="histCatDonutPanel"></div>
-      </div>
-      <div class="card">
-        <div class="row between"><b>מגמת הקטגוריה הנבחרת לאורך זמן</b></div>
-        <div class="history-controls" style="margin-top:10px">
-          <label>קטגוריה<select id="histTrendCategory" onchange="histRenderTrend()"></select></label>
-          <div class="chart-switch">
-            <button id="histTrendMonthlyBtn" class="active" type="button" onclick="histSetTrendPeriod('monthly')">חודשי</button>
-            <button id="histTrendYearlyBtn" type="button" onclick="histSetTrendPeriod('yearly')">שנתי</button>
-          </div>
-        </div>
-        <div id="histTrendChart" style="margin-top:10px"></div>
-        <div id="histTrendList" style="margin-top:10px"></div>
       </div>`;
     page.appendChild(catWrap);
 
@@ -7472,7 +7395,7 @@ if ("serviceWorker" in navigator) {
 
     $id("historyMonthBtn").onclick=()=>setHistoryMode("month");
     $id("historyYearBtn").onclick=()=>setHistoryMode("year");
-    yearSel.onchange=()=>{ renderHistoryMonth(); histRefresh(); };
+    yearSel.onchange=()=>{ renderHistoryMonth(); histRefresh(); if(typeof window.renderTopChart==="function") window.renderTopChart(); };
     monthSel.onchange=()=>{ renderHistoryMonth(); histRefresh(); };
 
     // Bridge for the interactive top chart: this listener lives in the same
@@ -7491,8 +7414,10 @@ if ("serviceWorker" in navigator) {
 
   function setHistoryMode(mode){
     const isMonth=mode==="month";
-    $id("historyMonthControls").classList.toggle("hidden",!isMonth);
-    $id("historyYearControls").classList.toggle("hidden",isMonth);
+    // The year field (inside historyMonthControls) stays visible in both modes —
+    // only the month field within it hides in year mode. historyYearControls itself
+    // holds nothing visible anymore (annualYear's own label is hidden there).
+    $id("historyMonthWrap").classList.toggle("hidden",!isMonth);
     $id("historyMonthBtn").classList.toggle("active",isMonth);
     $id("historyMonthBtn").classList.toggle("secondary",!isMonth);
     $id("historyYearBtn").classList.toggle("active",!isMonth);
@@ -7503,8 +7428,15 @@ if ("serviceWorker" in navigator) {
         $id("annualYear").value=y;
         if(typeof renderAnnual==="function") renderAnnual();
       }
-    } else renderHistoryMonth();
+    } else {
+      // Coming back from year mode: carry over whatever year was selected there,
+      // so the two year fields never show different values to the person.
+      const y=$id("annualYear")?.value;
+      if(y) $id("historyMonthYear").value=y;
+      renderHistoryMonth();
+    }
     histApplyVisibility();
+    if(typeof window.renderTopChart==="function") window.renderTopChart();
   }
 
   // ---- Unified "כללי / לפי קטגוריה" toggle, shared by both month and year modes ----
@@ -7525,22 +7457,14 @@ if ("serviceWorker" in navigator) {
     $id("histTypeWrap")?.classList.toggle("hidden", !isCategory);
     if(isCategory) histRenderCategoryViews();
   }
+  // Exposed so the top comparison chart (a separate module) can switch into year-detail
+  // mode when the person clicks a year bar there.
+  window.setHistoryMode=setHistoryMode;
   window.histOnViewChange=function(){
     histApplyVisibility();
   };
   window.histOnTypeChange=function(){
-    histPopulateCategorySelect($id("histTrendCategory"),$id("histType")?.value||"expense");
     histRenderCategoryViews();
-  };
-  let histTrendPeriod="monthly";
-  window.histSetTrendPeriod=function(period){
-    histTrendPeriod=period;
-    $id("histTrendMonthlyBtn")?.classList.toggle("active",period==="monthly");
-    $id("histTrendYearlyBtn")?.classList.toggle("active",period==="yearly");
-    histRenderTrendOnly();
-  };
-  window.histRenderTrend=function(){
-    histRenderTrendOnly();
   };
   function histRenderCategoryViews(){
     const type=$id("histType")?.value||"expense";
@@ -7552,23 +7476,6 @@ if ("serviceWorker" in navigator) {
       const isYear=/^\d{4}$/.test(periodKey);
       titleEl.textContent=`פילוח ${type==="income"?"הכנסות":"הוצאות"} לפי קטגוריה — ${isYear?"שנת "+periodKey:periodKey}`;
     }
-    if(!$id("histTrendCategory").options.length) histPopulateCategorySelect($id("histTrendCategory"),type);
-    histRenderTrendOnly();
-  }
-  function histRenderTrendOnly(){
-    const type=$id("histType")?.value||"expense";
-    const category=$id("histTrendCategory")?.value||"";
-    const chart=$id("histTrendChart");
-    const list=$id("histTrendList");
-    if(!chart || !list) return;
-    if(!category){
-      chart.innerHTML="";
-      list.innerHTML=`<div class="rc36-empty">אין נתונים להצגת מגמה.</div>`;
-      return;
-    }
-    const rows=histTrendRows(category,type,histTrendPeriod);
-    chart.innerHTML=histBarChartHTML(rows);
-    list.innerHTML=histRowListHTML(rows);
   }
   window.histRefresh=function(){
     if(!$id("histView")) return;
@@ -8138,39 +8045,84 @@ if ("serviceWorker" in navigator) {
   };
   const monthName=key=>new Intl.DateTimeFormat("he-IL",{month:"short"}).format(new Date(key+"-01T12:00:00"));
 
-  function monthKeyShift(key,delta){
-    const [y,m]=key.split("-").map(Number);
-    const d=new Date(y,m-1+delta,1,12);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-  }
-
-  function lastSixMonthKeys(){
+  function yearsWithData(){
     const tx=(typeof allTx==="function"?allTx():[]);
-    const keys=tx.map(x=>(x.date||"").slice(0,7)).filter(x=>/^\d{4}-\d{2}$/.test(x)).sort();
-    let end=keys.length?keys[keys.length-1]:new Date().toISOString().slice(0,7);
-    // Never end before the current month.
-    const current=new Date().toISOString().slice(0,7);
-    if(end<current) end=current;
-    return Array.from({length:6},(_,i)=>monthKeyShift(end,i-5));
+    const years=new Set(tx.map(x=>(x.date||"").slice(0,4)).filter(y=>/^\d{4}$/.test(y)));
+    years.add(String(new Date().getFullYear()));
+    return [...years].sort();
   }
 
-  function monthTotals(key){
+  function rc35CurrentYear(){
+    return document.getElementById("historyMonthYear")?.value
+      || document.getElementById("annualYear")?.value
+      || String(new Date().getFullYear());
+  }
+
+  function rc35PeriodKeys(){
+    if(rc35Scope==="years") return yearsWithData();
+    const year=rc35CurrentYear();
+    return Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,"0")}`);
+  }
+
+  function rc35Label(key){
+    return /^\d{4}$/.test(key) ? key : monthName(key);
+  }
+
+  function rc35SelectedCategory(){
+    const v=document.getElementById("rc35CategorySelect")?.value||"";
+    if(!v) return null;
+    const idx=v.indexOf(":::");
+    return idx<0 ? null : {type:v.slice(0,idx), name:v.slice(idx+3)};
+  }
+
+  function periodTotals(key,categoryFilter){
+    const isYear=/^\d{4}$/.test(key);
     const tx=(typeof allTx==="function"?allTx():[]).filter(x=>{
       const k=typeof budgetMonth==="function"?budgetMonth(x):(x.date||"").slice(0,7);
-      return k===key;
+      return isYear ? k.slice(0,4)===key : k===key;
     });
     let income=0,expenses=0;
     tx.forEach(x=>{
       const type=(x.type||"").toLowerCase();
+      if(categoryFilter){
+        if(type!==categoryFilter.type) return;
+        const cat = type==="income" ? (x.category||"") : (typeof mapCat==="function"?mapCat(x.category):x.category);
+        if(cat!==categoryFilter.name) return;
+      }
       if(type==="income"){
         income += typeof incomeAmount==="function"?incomeAmount(x):Math.max(0,Number(x.amount||0));
       }else if(type==="expense"){
-        const cat=typeof norm==="function"?norm(x.category):x.category;
-        if(cat==="תכנית חיסכון"||cat==="חיסכון") return;
+        if(!categoryFilter){
+          const cat=typeof norm==="function"?norm(x.category):x.category;
+          if(cat==="תכנית חיסכון"||cat==="חיסכון") return;
+        }
         expenses += typeof expenseAmount==="function"?expenseAmount(x):Math.abs(Number(x.amount||0));
       }
     });
     return {key,income,expenses};
+  }
+
+  function rc35PopulateCategories(){
+    const sel=document.getElementById("rc35CategorySelect");
+    if(!sel) return;
+    const prev=sel.value;
+    const tx=(typeof allTx==="function"?allTx():[]);
+    const expenseCats=new Set(), incomeCats=new Set();
+    tx.forEach(x=>{
+      const type=(x.type||"").toLowerCase();
+      if(type==="expense"){
+        const c=typeof mapCat==="function"?mapCat(x.category):x.category;
+        const nc=typeof norm==="function"?norm(c):c;
+        if(nc!=="תכנית חיסכון" && nc!=="חיסכון" && c) expenseCats.add(c);
+      }else if(type==="income" && x.category){
+        incomeCats.add(x.category);
+      }
+    });
+    const opt=(type,name)=>`<option value="${type}:::${String(name).replace(/"/g,"&quot;")}">${name}</option>`;
+    sel.innerHTML = `<option value="">כללי</option>`
+      + (expenseCats.size?`<optgroup label="הוצאות">${[...expenseCats].sort().map(c=>opt("expense",c)).join("")}</optgroup>`:"")
+      + (incomeCats.size?`<optgroup label="הכנסות">${[...incomeCats].sort().map(c=>opt("income",c)).join("")}</optgroup>`:"");
+    if([...sel.options].some(o=>o.value===prev)) sel.value=prev;
   }
 
   function ensureTopChart(){
@@ -8178,37 +8130,56 @@ if ("serviceWorker" in navigator) {
     const controls=document.getElementById("historyModeControls");
     if(!page || !controls) return null;
 
+    // The controls that drive this chart (scope/data-type/category) live right inside
+    // the shared history controls card, beside the year selector — not in a separate
+    // card — so it's visually obvious they belong together.
+    if(!document.getElementById("rc35CompareControls")){
+      const row=document.createElement("div");
+      row.id="rc35CompareControls";
+      row.className="history-controls";
+      row.style.cssText="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)";
+      row.innerHTML=`
+        <label>השוואה<select id="rc35ScopeSelect">
+          <option value="months">בין חודשי השנה</option>
+          <option value="years">בין שנים</option>
+        </select></label>
+        <label>נתון<select id="rc35TypeSelect">
+          <option value="both">שניהם</option>
+          <option value="expenses">הוצאות</option>
+          <option value="income">הכנסות</option>
+        </select></label>
+        <label>קטגוריה<select id="rc35CategorySelect"><option value="">כללי</option></select></label>`;
+      controls.appendChild(row);
+      document.getElementById("rc35ScopeSelect").onchange=function(){ rc35SetScope(this.value); };
+      document.getElementById("rc35TypeSelect").onchange=function(){ rc35SetChartMode(this.value); };
+      document.getElementById("rc35CategorySelect").onchange=renderTopChart;
+    }
+    rc35PopulateCategories();
+
     let card=document.getElementById("historyTopCompare");
     if(!card){
       card=document.createElement("section");
+      card.className="card";
       card.id="historyTopCompare";
       card.innerHTML=`
         <div class="rc32-chart-head">
           <div>
-            <h2>השוואה בין חודשים</h2>
-            <div class="rc32-chart-sub">לחיצה על חודש תפתח את הניתוח של אותו חודש</div>
-          </div>
-          <div>
-            <div class="rc35-chart-switch" aria-label="סוג נתונים בגרף">
-              <button id="rc35ExpensesBtn" type="button">הוצאות</button>
-              <button id="rc35IncomeBtn" type="button">הכנסות</button>
-              <button id="rc35BothBtn" class="active" type="button">שניהם</button>
-            </div>
+            <h2>השוואה</h2>
+            <div class="rc32-chart-sub" id="rc32ChartSub">לחיצה על חודש תפתח את הניתוח של אותו חודש</div>
           </div>
         </div>
-        <div class="rc32-legend">
+        <div class="rc32-legend" id="rc32Legend">
           <span><i class="rc32-dot income"></i>הכנסות</span>
           <span><i class="rc32-dot expense"></i>הוצאות</span>
         </div>
         <div class="rc32-chart-shell"><div id="rc32MonthChart"></div></div>
-        <div class="rc35-chart-hint">אפשר ללחוץ על כל חודש כדי לעבור מיד לפירוט שלו</div>`;
+        <div class="rc35-chart-hint">אפשר ללחוץ על כל עמודה כדי לעבור מיד לפירוט שלה</div>`;
     }
 
-    // Always keep the graph first, and the month/year chooser immediately below it.
-    if(page.firstElementChild!==card) page.insertBefore(card,page.firstChild);
-    if(card.nextElementSibling!==controls) card.insertAdjacentElement("afterend",controls);
+    // Controls first, then the chart they drive, in reading order.
+    if(controls.nextElementSibling!==card) controls.insertAdjacentElement("afterend",card);
 
-    // Hide the older annual chart card so there is only one month-comparison graph.
+    // Hide the older annual chart card so there is only one comparison graph.
     const oldBars=document.getElementById("annualBarChart");
     const oldCard=oldBars?.closest(".card");
     if(oldCard && oldCard!==card) oldCard.classList.add("rc32-old-annual-chart");
@@ -8218,6 +8189,7 @@ if ("serviceWorker" in navigator) {
 
 
   let rc35ChartMode="both";
+  let rc35Scope="months";
 
   function rc35SelectedMonthKey(){
     const y=document.getElementById("historyMonthYear")?.value;
@@ -8227,9 +8199,15 @@ if ("serviceWorker" in navigator) {
 
   function rc35SetChartMode(mode){
     rc35ChartMode=mode;
-    [["expenses","rc35ExpensesBtn"],["income","rc35IncomeBtn"],["both","rc35BothBtn"]].forEach(([m,id])=>{
-      document.getElementById(id)?.classList.toggle("active",m===mode);
-    });
+    const sel=document.getElementById("rc35TypeSelect");
+    if(sel) sel.value=mode;
+    renderTopChart();
+  }
+
+  function rc35SetScope(scope){
+    rc35Scope=scope;
+    const sel=document.getElementById("rc35ScopeSelect");
+    if(sel) sel.value=scope;
     renderTopChart();
   }
 
@@ -8260,45 +8238,93 @@ if ("serviceWorker" in navigator) {
     const target=document.getElementById("rc32MonthChart");
     if(!target) return;
 
-    const rows=lastSixMonthKeys().map(monthTotals);
-    const values=rows.flatMap(r=>{
-      if(rc35ChartMode==="income") return [r.income];
-      if(rc35ChartMode==="expenses") return [r.expenses];
-      return [r.income,r.expenses];
-    });
-    const max=Math.max(0,...values);
+    const subEl=document.getElementById("rc32ChartSub");
+    const legendEl=document.getElementById("rc32Legend");
+    const category=rc35SelectedCategory();
+    const keys=rc35PeriodKeys();
+    const rows=keys.map(k=>periodTotals(k,category));
 
-    if(!max){
-      target.innerHTML='<div class="rc32-empty">אין עדיין מספיק נתונים להצגת השוואה בין חודשים.</div>';
-      return;
+    if(subEl){
+      subEl.textContent = rc35Scope==="years"
+        ? "לחיצה על שנה תפתח את הניתוח השנתי שלה"
+        : `חודשי שנת ${rc35CurrentYear()} · לחיצה על חודש תפתח את הניתוח שלו`;
     }
 
-    const selected=rc35SelectedMonthKey();
-
-    target.innerHTML=`<div class="rc32-chart">${rows.map(r=>{
-      const ih=Math.max(r.income?4:0,Math.round(r.income/max*210));
-      const eh=Math.max(r.expenses?4:0,Math.round(r.expenses/max*210));
-      const showIncome=rc35ChartMode==="income"||rc35ChartMode==="both";
-      const showExpenses=rc35ChartMode==="expenses"||rc35ChartMode==="both";
-      return `<div class="rc32-month ${selected===r.key?"rc35-selected":""}" data-month="${r.key}" title="${r.key} · הכנסות ${r.income} · הוצאות ${r.expenses}">
-        <div class="rc32-bars">
-          <div class="rc32-bar-wrap">
-            <div class="rc32-bar income ${showIncome?"":"rc35-muted"}" style="height:${showIncome?ih:Math.max(2,ih)}px">
-              ${showIncome&&r.income?`<span class="rc32-value">${fmtShort(r.income)}</span>`:""}
+    if(category){
+      const isIncomeCat=category.type==="income";
+      const values=rows.map(r=>isIncomeCat?r.income:r.expenses);
+      const max=Math.max(0,...values);
+      if(legendEl) legendEl.innerHTML=`<span><i class="rc32-dot ${isIncomeCat?"income":"expense"}"></i>${category.name}</span>`;
+      if(!max){
+        target.innerHTML='<div class="rc32-empty">אין עדיין נתונים להצגת השוואה עבור הקטגוריה הזו.</div>';
+        return;
+      }
+      target.innerHTML=`<div class="rc32-chart">${rows.map((r,i)=>{
+        const v=values[i];
+        const h=Math.max(v?4:0,Math.round(v/max*210));
+        return `<div class="rc32-month" data-key="${r.key}" title="${rc35Label(r.key)} · ${category.name} ${v}">
+          <div class="rc32-bars">
+            <div class="rc32-bar-wrap">
+              <div class="rc32-bar ${isIncomeCat?"income":"expense"}" style="height:${h}px">
+                ${v?`<span class="rc32-value">${fmtShort(v)}</span>`:""}
+              </div>
             </div>
           </div>
-          <div class="rc32-bar-wrap">
-            <div class="rc32-bar expense ${showExpenses?"":"rc35-muted"}" style="height:${showExpenses?eh:Math.max(2,eh)}px">
-              ${showExpenses&&r.expenses?`<span class="rc32-value">${fmtShort(r.expenses)}</span>`:""}
+          <div class="rc32-month-label">${rc35Label(r.key)}</div>
+        </div>`;
+      }).join("")}</div>`;
+    } else {
+      const values=rows.flatMap(r=>{
+        if(rc35ChartMode==="income") return [r.income];
+        if(rc35ChartMode==="expenses") return [r.expenses];
+        return [r.income,r.expenses];
+      });
+      const max=Math.max(0,...values);
+      if(legendEl) legendEl.innerHTML=`<span><i class="rc32-dot income"></i>הכנסות</span><span><i class="rc32-dot expense"></i>הוצאות</span>`;
+      if(!max){
+        target.innerHTML='<div class="rc32-empty">אין עדיין מספיק נתונים להצגת השוואה.</div>';
+        return;
+      }
+      const selected=rc35Scope==="months"?rc35SelectedMonthKey():"";
+      target.innerHTML=`<div class="rc32-chart">${rows.map(r=>{
+        const ih=Math.max(r.income?4:0,Math.round(r.income/max*210));
+        const eh=Math.max(r.expenses?4:0,Math.round(r.expenses/max*210));
+        const showIncome=rc35ChartMode==="income"||rc35ChartMode==="both";
+        const showExpenses=rc35ChartMode==="expenses"||rc35ChartMode==="both";
+        return `<div class="rc32-month ${selected===r.key?"rc35-selected":""}" data-key="${r.key}" title="${rc35Label(r.key)} · הכנסות ${r.income} · הוצאות ${r.expenses}">
+          <div class="rc32-bars">
+            <div class="rc32-bar-wrap">
+              <div class="rc32-bar income ${showIncome?"":"rc35-muted"}" style="height:${showIncome?ih:Math.max(2,ih)}px">
+                ${showIncome&&r.income?`<span class="rc32-value">${fmtShort(r.income)}</span>`:""}
+              </div>
+            </div>
+            <div class="rc32-bar-wrap">
+              <div class="rc32-bar expense ${showExpenses?"":"rc35-muted"}" style="height:${showExpenses?eh:Math.max(2,eh)}px">
+                ${showExpenses&&r.expenses?`<span class="rc32-value">${fmtShort(r.expenses)}</span>`:""}
+              </div>
             </div>
           </div>
-        </div>
-        <div class="rc32-month-label">${monthName(r.key)}</div>
-      </div>`;
-    }).join("")}</div>`;
+          <div class="rc32-month-label">${rc35Label(r.key)}</div>
+        </div>`;
+      }).join("")}</div>`;
+    }
 
-    target.querySelectorAll(".rc32-month[data-month]").forEach(el=>{
-      el.addEventListener("click",()=>rc35OpenMonth(el.dataset.month));
+    target.querySelectorAll(".rc32-month[data-key]").forEach(el=>{
+      el.addEventListener("click",()=>{
+        const key=el.dataset.key;
+        if(rc35Scope==="years"){
+          const yearSel=document.getElementById("historyMonthYear");
+          const annualSel=document.getElementById("annualYear");
+          if(yearSel) yearSel.value=key;
+          if(annualSel) annualSel.value=key;
+          if(typeof setHistoryMode==="function") setHistoryMode("year");
+          if(typeof renderAnnual==="function") renderAnnual();
+          const yview=document.getElementById("historyYearView");
+          if(yview) setTimeout(()=>yview.scrollIntoView({behavior:"smooth",block:"start"}),100);
+        } else {
+          rc35OpenMonth(key);
+        }
+      });
     });
 
   }
@@ -8308,6 +8334,7 @@ if ("serviceWorker" in navigator) {
     if(typeof setupHistory==="function") setupHistory();
     renderTopChart();
   }
+  window.renderTopChart=renderTopChart;
 
   window.addEventListener("load",()=>{
     // Do not rebuild the history chart on every app boot — only when needed.
@@ -8315,9 +8342,6 @@ if ("serviceWorker" in navigator) {
   });
   document.addEventListener("click",e=>{
     if(e.target?.id==="annualTab") setTimeout(refresh,80);
-    if(e.target?.id==="rc35ExpensesBtn") rc35SetChartMode("expenses");
-    if(e.target?.id==="rc35IncomeBtn") rc35SetChartMode("income");
-    if(e.target?.id==="rc35BothBtn") rc35SetChartMode("both");
   });
   document.addEventListener("change",e=>{
     if(e.target?.id==="csvFile") setTimeout(renderTopChart,900);
