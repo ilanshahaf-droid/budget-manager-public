@@ -3243,10 +3243,9 @@ completion is excluded from all analytical totals, preventing double-counting.
 <div id="morePage" class="page">
   <div class="page-shell">
     <h2 style="margin:8px 0 4px;font-size:22px;font-weight:900">עוד</h2>
-    <div class="muted" style="margin-bottom:12px;font-size:13px">ניתוח מעמיק, ביטוחים והגדרות</div>
+    <div class="muted" style="margin-bottom:12px;font-size:13px">ביטוחים, קרנות והגדרות</div>
     <div class="more-list">
       <button type="button" onclick="showPage('forecast')"><span>🎯 תחזית מפורטת</span><small>לחיצה</small></button>
-      <button type="button" onclick="showPage('annual')"><span>◔ עבר וניתוח</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('insurance')"><span>🛡️ ביטוחים</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('funds')"><span>🏦 קרנות וחיסכון פנסיוני</span><small>לחיצה</small></button>
       <button type="button" onclick="showPage('settings')"><span>⚙️ הגדרות וסנכרון</span><small>לחיצה</small></button>
@@ -7750,6 +7749,9 @@ if ("serviceWorker" in navigator) {
     if(name==="annual"){
       setupHistory();
       setTimeout(renderHistoryMonth,0);
+      // Make sure the comparison chart always initializes here, regardless of which
+      // button sent the user to this page (bottom-nav tab, the old hidden tab, "עוד").
+      setTimeout(()=>{ if(typeof window.renderTopChart==="function") window.renderTopChart(); },80);
     }
   };
 
@@ -8160,10 +8162,22 @@ if ("serviceWorker" in navigator) {
         <div class="rc35-chart-hint">אפשר ללחוץ על כל עמודה כדי לעבור מיד לפירוט שלה</div>`;
     }
 
-    // The chart sits at the very top of the page, with the fields that drive it
-    // directly below it, and the detail/breakdown content below that.
+    // A plain numbers list that mirrors the chart exactly — same rows, same values,
+    // just as text instead of bars. Sits right after the fields, before the richer
+    // (but differently-scoped) detail views further down the page.
+    let detail=document.getElementById("rc35DetailCard");
+    if(!detail){
+      detail=document.createElement("div");
+      detail.className="card";
+      detail.id="rc35DetailCard";
+      detail.innerHTML=`<div class="row between"><b id="rc35DetailTitle">פירוט במספרים</b></div><div id="rc35DetailList" style="margin-top:8px"></div>`;
+    }
+
+    // Order: chart, then the fields that drive it, then the matching numeric detail,
+    // then whatever richer detail content follows.
     if(page.firstElementChild!==card) page.insertBefore(card,page.firstChild);
     if(card.nextElementSibling!==controls) card.insertAdjacentElement("afterend",controls);
+    if(controls.nextElementSibling!==detail) controls.insertAdjacentElement("afterend",detail);
 
     // Hide the older annual chart card so there is only one comparison graph.
     const oldBars=document.getElementById("annualBarChart");
@@ -8171,6 +8185,37 @@ if ("serviceWorker" in navigator) {
     if(oldCard && oldCard!==card) oldCard.classList.add("rc32-old-annual-chart");
 
     return card;
+  }
+
+  function rc35RenderDetailList(rows,category){
+    const host=document.getElementById("rc35DetailList");
+    const titleEl=document.getElementById("rc35DetailTitle");
+    if(!host) return;
+    if(!rows.length || !rows.some(r=>category?(category.type==="income"?r.income:r.expenses):(r.income||r.expenses))){
+      host.innerHTML=`<div class="rc36-empty">אין עדיין נתונים להצגה.</div>`;
+      return;
+    }
+    if(titleEl){
+      const scopeLabel=rc35Scope()==="years"?"לפי שנים":`לפי חודשים — שנת ${rc35CurrentYear()}`;
+      titleEl.textContent = category
+        ? `פירוט במספרים — ${category.name} (${category.type==="income"?"הכנסות":"הוצאות"}) ${scopeLabel}`
+        : `פירוט במספרים — ${rc35ChartMode==="income"?"הכנסות":rc35ChartMode==="expenses"?"הוצאות":"הכנסות והוצאות"} ${scopeLabel}`;
+    }
+    const lines=[...rows].reverse().map(r=>{
+      let valueHtml;
+      if(category){
+        const v=category.type==="income"?r.income:r.expenses;
+        valueHtml=`<b>${fmt(v)}</b>`;
+      }else if(rc35ChartMode==="income"){
+        valueHtml=`<b>${fmt(r.income)}</b>`;
+      }else if(rc35ChartMode==="expenses"){
+        valueHtml=`<b>${fmt(r.expenses)}</b>`;
+      }else{
+        valueHtml=`<span class="muted tiny">הכנסות</span> <b>${fmt(r.income)}</b> &nbsp;·&nbsp; <span class="muted tiny">הוצאות</span> <b>${fmt(r.expenses)}</b>`;
+      }
+      return `<div class="rc36-cat-row"><span class="rc36-cat-name">${rc35Label(r.key)}</span><span class="rc36-cat-value">${valueHtml}</span></div>`;
+    }).join("");
+    host.innerHTML=`<div class="rc36-cat-list">${lines}</div>`;
   }
 
 
@@ -8236,6 +8281,8 @@ if ("serviceWorker" in navigator) {
         ? "לחיצה על שנה תפתח את הניתוח השנתי שלה"
         : `חודשי שנת ${rc35CurrentYear()} · לחיצה על חודש תפתח את הניתוח שלו`;
     }
+
+    rc35RenderDetailList(rows,category);
 
     if(category){
       const isIncomeCat=category.type==="income";
@@ -8470,86 +8517,9 @@ if ("serviceWorker" in navigator) {
 
 <script id="rc503-swipe-navigation">
 (function(){
-  const PAGE_ORDER=["forecast","budget","annual","insurance","settings"];
-  const PAGE_EL={forecast:"forecastPage",budget:"budgetPage",annual:"annualPage",insurance:"insurancePage",settings:"settingsPage"};
-  let startX=0,startY=0,startT=0,tracking=false;
-  const MIN_X=55;
-  const MAX_Y=110;
-  const MAX_MS=900;
-
-  function visiblePageId(){
-    const el=document.querySelector(".page.active");
-    if(!el)return "budget";
-    if(el.id==="forecastPage")return "forecast";
-    if(el.id==="budgetPage")return "budget";
-    if(el.id==="annualPage")return "annual";
-    if(el.id==="insurancePage")return "insurance";
-    if(el.id==="settingsPage")return "settings";
-    return "budget";
-  }
-
-  function animatePage(dir){
-    const id=visiblePageId();
-    const el=document.getElementById(PAGE_EL[id]);
-    if(!el)return;
-    el.classList.remove("rc503-enter-from-right","rc503-enter-from-left");
-    void el.offsetWidth;
-    el.classList.add(dir==="next"?"rc503-enter-from-right":"rc503-enter-from-left");
-    setTimeout(()=>el.classList.remove("rc503-enter-from-right","rc503-enter-from-left"),220);
-  }
-
-  function go(dir){
-    const cur=visiblePageId();
-    const i=PAGE_ORDER.indexOf(cur);
-    if(i<0)return;
-    const ni=dir==="next"?i+1:i-1;
-    if(ni<0||ni>=PAGE_ORDER.length)return;
-    const target=PAGE_ORDER[ni];
-    if(typeof showPage==="function"){
-      showPage(target);
-      requestAnimationFrame(()=>animatePage(dir));
-    }
-  }
-
-  function isInteractiveTarget(t){
-    return !!t.closest("input,textarea,select,button,a,[contenteditable='true'],.no-swipe,.rc50-forecast-trigger");
-  }
-
-  document.addEventListener("touchstart",e=>{
-    if(e.touches.length!==1)return;
-    if(isInteractiveTarget(e.target))return;
-    const p=e.touches[0];
-    startX=p.clientX; startY=p.clientY; startT=Date.now(); tracking=true;
-  },{passive:true});
-
-  document.addEventListener("touchend",e=>{
-    if(!tracking)return;
-    tracking=false;
-    const p=e.changedTouches&&e.changedTouches[0];
-    if(!p)return;
-    const dx=p.clientX-startX;
-    const dy=p.clientY-startY;
-    const dt=Date.now()-startT;
-    if(dt>MAX_MS)return;
-    if(Math.abs(dx)<MIN_X)return;
-    if(Math.abs(dy)>MAX_Y)return;
-    if(Math.abs(dx)<Math.abs(dy)*1.35)return;
-
-    // Navigation direction adjusted to the user's preferred gesture:
-    // swipe right => next page, swipe left => previous page
-    if(dx>0)go("next");
-    else go("prev");
-  },{passive:true});
-
-  // Prevent accidental navigation when a clearly vertical gesture is happening.
-  document.addEventListener("touchmove",e=>{
-    if(!tracking||!e.touches.length)return;
-    const p=e.touches[0];
-    const dx=p.clientX-startX,dy=p.clientY-startY;
-    if(Math.abs(dy)>Math.abs(dx)*1.2 && Math.abs(dy)>25)tracking=false;
-  },{passive:true});
-
-  // Swipe right from the forecast breakdown closes it instead of changing top-level page.
+  // Page-to-page swipe navigation was removed at Ilan's request — it interfered with
+  // normal use, including horizontal scrolling inside the comparison chart. Only the
+  // unrelated "swipe to close the forecast breakdown panel" gesture below remains.
   const forecast=document.getElementById("rc50ForecastBreakdown");
   if(forecast){
     let fx=0,fy=0,ft=0,ftrack=false;
@@ -8575,6 +8545,7 @@ if ("serviceWorker" in navigator) {
 
 <nav class="modern-bottom-nav" aria-label="ניווט ראשי">
   <button id="modernBudgetTab" class="active" onclick="showPage('budget')"><span class="nav-icon">🏠</span><span>בית</span></button>
+  <button id="modernAnnualTab" onclick="showPage('annual')"><span class="nav-icon">📊</span><span>עבר וניתוח</span></button>
   <button id="modernActionsTab" onclick="showPage('actions')"><span class="nav-icon">⚡</span><span>פעולות</span></button>
   <button id="modernCoachTab" onclick="showPage('coach')"><span class="nav-icon">🤖</span><span>מאמן</span></button>
   <button id="modernMoreTab" onclick="showPage('more')"><span class="nav-icon">☰</span><span>עוד</span></button>
