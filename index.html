@@ -944,6 +944,25 @@ body{
 .rc32-dot{width:10px;height:10px;border-radius:3px;display:inline-block}
 .rc32-dot.income{background:#22a06b}
 .rc32-dot.expense{background:#e05a5a}
+.rc35-detail-legend{display:flex;gap:16px;margin-bottom:10px;font-size:13px;color:var(--muted);font-weight:700}
+.rc35-detail-legend span{display:flex;align-items:center;gap:6px}
+.rc35-detail-list{border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.rc35-detail-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 14px;background:#fff;
+}
+.rc35-detail-row.alt{background:#f7f6fb}
+.rc35-detail-row+.rc35-detail-row{border-top:1px solid var(--line)}
+.rc35-detail-label{font-weight:800;color:var(--text)}
+.rc35-amt-income{color:#1a8f5c;font-weight:800;white-space:nowrap}
+.rc35-amt-expense{color:#d14b4b;font-weight:800;white-space:nowrap}
+.rc35-amt-pair{display:flex;align-items:center;gap:8px}
+.rc35-amt-sep{color:var(--muted);font-weight:400}
+/* Same purple/white look as the חודש/שנה toggle above this row, applied to all three
+   fields (שנה, חודש, קטגוריה) so the whole row reads as one consistent control family
+   instead of a plain gray dropdown row. */
+.rc35-cat-select{background:var(--primary)!important;color:#fff!important;border:0!important;font-weight:700!important}
+.rc35-cat-select option{background:#fff;color:var(--text);font-weight:400}
 
 .rc32-chart-shell{
   position:relative;
@@ -1522,6 +1541,11 @@ body{
 .history-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
 .history-controls label{display:grid;gap:6px;font-weight:700}
 .history-controls select{min-width:150px}
+/* שנה/חודש/קטגוריה share one row — let them shrink evenly instead of each
+   demanding 150px (which would force an awkward wrap with three fields). */
+#historyMonthControls{flex-wrap:nowrap}
+#historyMonthControls select{min-width:0}
+#historyMonthControls label{overflow:hidden}
 .history-month-grid{
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0
 }
@@ -7317,8 +7341,8 @@ if ("serviceWorker" in navigator) {
         </div>
       </div>
       <div id="historyMonthControls" class="history-controls" style="margin-top:14px">
-        <label>שנה<select id="historyMonthYear"></select></label>
-        <label id="historyMonthWrap">חודש<select id="historyMonthSelect"></select></label>
+        <label style="flex:1;min-width:0">שנה<select id="historyMonthYear" class="rc35-cat-select" style="width:100%"></select></label>
+        <label id="historyMonthWrap" style="flex:1;min-width:0">חודש<select id="historyMonthSelect" class="rc35-cat-select" style="width:100%"></select></label>
       </div>
       <div id="historyYearControls" class="hidden"></div>`;
     page.insertBefore(controls,page.firstChild);
@@ -8118,23 +8142,16 @@ if ("serviceWorker" in navigator) {
     const controls=document.getElementById("historyModeControls");
     if(!page || !controls) return null;
 
-    // The controls that drive this chart (scope/data-type/category) live right inside
-    // the shared history controls card, beside the year selector — not in a separate
-    // card — so it's visually obvious they belong together.
-    if(!document.getElementById("rc35CompareControls")){
-      const row=document.createElement("div");
-      row.id="rc35CompareControls";
-      row.className="history-controls";
-      row.style.cssText="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)";
-      row.innerHTML=`
-        <label style="flex:1;min-width:0">קטגוריה<select id="rc35CategorySelect" style="width:100%"><option value="">כללי</option></select></label>
-        <label style="flex:1;min-width:0">נתון<select id="rc35TypeSelect" style="width:100%">
-          <option value="both">שניהם</option>
-          <option value="expenses">הוצאות</option>
-          <option value="income">הכנסות</option>
-        </select></label>`;
-      controls.appendChild(row);
-      document.getElementById("rc35TypeSelect").onchange=function(){ rc35SetChartMode(this.value); };
+    // "קטגוריה" lives in the same row as חודש/שנה to save space — no separate "נתון"
+    // (income/expense) selector: a chosen category already implies its own type, and
+    // "כללי" always means both, so that choice was asking the same thing twice.
+    const monthControls=document.getElementById("historyMonthControls");
+    if(monthControls && !document.getElementById("rc35CategorySelect")){
+      const label=document.createElement("label");
+      label.id="rc35CategoryWrap";
+      label.style.cssText="flex:1;min-width:0";
+      label.innerHTML=`קטגוריה<select id="rc35CategorySelect" class="rc35-cat-select" style="width:100%"><option value="">כללי</option></select>`;
+      monthControls.appendChild(label);
       document.getElementById("rc35CategorySelect").onchange=function(){
         renderTopChart();
         if(typeof window.histApplyVisibility==="function") window.histApplyVisibility();
@@ -8201,25 +8218,25 @@ if ("serviceWorker" in navigator) {
         ? `פירוט במספרים — ${category.name} (${category.type==="income"?"הכנסות":"הוצאות"}) ${scopeLabel}`
         : `פירוט במספרים — ${rc35ChartMode==="income"?"הכנסות":rc35ChartMode==="expenses"?"הוצאות":"הכנסות והוצאות"} ${scopeLabel}`;
     }
-    const lines=[...rows].reverse().map(r=>{
+    const lines=rows.map((r,i)=>{
       let valueHtml;
       if(category){
         const v=category.type==="income"?r.income:r.expenses;
-        valueHtml=`<b>${fmt(v)}</b>`;
-      }else if(rc35ChartMode==="income"){
-        valueHtml=`<b>${fmt(r.income)}</b>`;
-      }else if(rc35ChartMode==="expenses"){
-        valueHtml=`<b>${fmt(r.expenses)}</b>`;
+        const cls=category.type==="income"?"rc35-amt-income":"rc35-amt-expense";
+        valueHtml=`<b class="${cls}">${fmt(v)}</b>`;
       }else{
-        valueHtml=`<span class="muted tiny">הכנסות</span> <b>${fmt(r.income)}</b> &nbsp;·&nbsp; <span class="muted tiny">הוצאות</span> <b>${fmt(r.expenses)}</b>`;
+        valueHtml=`<span class="rc35-amt-pair"><span class="rc35-amt-income">${fmt(r.income)}</span><span class="rc35-amt-sep">·</span><span class="rc35-amt-expense">${fmt(r.expenses)}</span></span>`;
       }
-      return `<div class="rc36-cat-row"><span class="rc36-cat-name">${rc35Label(r.key)}</span><span class="rc36-cat-value">${valueHtml}</span></div>`;
+      return `<div class="rc35-detail-row${i%2?" alt":""}"><span class="rc35-detail-label">${rc35Label(r.key)}</span>${valueHtml}</div>`;
     }).join("");
-    host.innerHTML=`<div class="rc36-cat-list">${lines}</div>`;
+    const legendHtml = category ? "" : `<div class="rc35-detail-legend"><span><i class="rc32-dot income"></i>הכנסות</span><span><i class="rc32-dot expense"></i>הוצאות</span></div>`;
+    host.innerHTML=`${legendHtml}<div class="rc35-detail-list">${lines}</div>`;
   }
 
 
-  let rc35ChartMode="both";
+  // "כללי" (no category chosen) always means both income and expense together —
+  // there's no separate income/expense/both selector any more.
+  const rc35ChartMode="both";
 
   // The comparison chart's scope (months-of-a-year vs. years) follows the same
   // "חודש / שנה" toggle at the top of this card, instead of asking the same
@@ -8234,13 +8251,6 @@ if ("serviceWorker" in navigator) {
     const y=document.getElementById("historyMonthYear")?.value;
     const m=document.getElementById("historyMonthSelect")?.value;
     return y&&m ? `${y}-${m}` : "";
-  }
-
-  function rc35SetChartMode(mode){
-    rc35ChartMode=mode;
-    const sel=document.getElementById("rc35TypeSelect");
-    if(sel) sel.value=mode;
-    renderTopChart();
   }
 
   function rc35OpenMonth(monthKey){
