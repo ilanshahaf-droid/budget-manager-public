@@ -1017,11 +1017,6 @@ body{
 }
 #annualPage .rc32-old-annual-chart{display:none!important}
 
-/* Controls should visually follow the chart */
-#annualPage #historyModeControls{
-  margin-top:0!important;
-}
-
 @media(max-width:700px){
   #historyTopCompare{padding:14px 10px 10px;border-radius:16px}
   #historyTopCompare h2{font-size:19px}
@@ -7326,17 +7321,7 @@ if ("serviceWorker" in navigator) {
         <label>שנה<select id="historyMonthYear"></select></label>
         <label id="historyMonthWrap">חודש<select id="historyMonthSelect"></select></label>
       </div>
-      <div id="historyYearControls" class="hidden"></div>
-      <div class="history-controls" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
-        <label>תצוגה<select id="histView" onchange="histOnViewChange()">
-          <option value="general">כללי</option>
-          <option value="category">לפי קטגוריה</option>
-        </select></label>
-        <label id="histTypeWrap" class="hidden">סוג<select id="histType" onchange="histOnTypeChange()">
-          <option value="expense">הוצאות</option>
-          <option value="income">הכנסות</option>
-        </select></label>
-      </div>`;
+      <div id="historyYearControls" class="hidden"></div>`;
     page.insertBefore(controls,page.firstChild);
 
     const monthView=document.createElement("div");
@@ -7447,27 +7432,27 @@ if ("serviceWorker" in navigator) {
     if(histCurrentMode()==="year") return $id("annualYear")?.value||String(new Date().getFullYear());
     return `${$id("historyMonthYear")?.value}-${$id("historyMonthSelect")?.value}`;
   }
+  // Which category (if any) is picked is governed by ONE selector — the "קטגוריה"
+  // dropdown that lives next to "שנה" and already drives the comparison chart above.
+  // Picking a category here also swaps the detail view below from the general month/year
+  // summary to that category's breakdown donut, instead of asking the same "general or
+  // category?" question a second time in a separate "תצוגה" control.
   function histApplyVisibility(){
-    const view=$id("histView")?.value||"general";
-    const isCategory=view==="category";
+    const category=typeof window.rc35SelectedCategory==="function"?window.rc35SelectedCategory():null;
+    const isCategory=!!category;
     const mode=histCurrentMode();
     $id("historyMonthView")?.classList.toggle("hidden", isCategory || mode!=="month");
     $id("historyYearView")?.classList.toggle("hidden", isCategory || mode!=="year");
     $id("histCategoryWrap")?.classList.toggle("hidden", !isCategory);
-    $id("histTypeWrap")?.classList.toggle("hidden", !isCategory);
-    if(isCategory) histRenderCategoryViews();
+    if(isCategory) histRenderCategoryViews(category);
   }
   // Exposed so the top comparison chart (a separate module) can switch into year-detail
-  // mode when the person clicks a year bar there.
+  // mode when the person clicks a year bar there, and can tell this module to refresh
+  // when the shared "קטגוריה" selector changes.
   window.setHistoryMode=setHistoryMode;
-  window.histOnViewChange=function(){
-    histApplyVisibility();
-  };
-  window.histOnTypeChange=function(){
-    histRenderCategoryViews();
-  };
-  function histRenderCategoryViews(){
-    const type=$id("histType")?.value||"expense";
+  window.histApplyVisibility=histApplyVisibility;
+  function histRenderCategoryViews(category){
+    const type=category.type;
     const periodKey=histCurrentPeriodKey();
     const panel=$id("histCatDonutPanel");
     if(panel) panel.innerHTML=rc36DonutHTML(periodKey,type,{closable:false});
@@ -7478,7 +7463,7 @@ if ("serviceWorker" in navigator) {
     }
   }
   window.histRefresh=function(){
-    if(!$id("histView")) return;
+    if(!$id("historyModeControls")) return;
     histApplyVisibility();
   };
 
@@ -8059,7 +8044,7 @@ if ("serviceWorker" in navigator) {
   }
 
   function rc35PeriodKeys(){
-    if(rc35Scope==="years") return yearsWithData();
+    if(rc35Scope()==="years") return yearsWithData();
     const year=rc35CurrentYear();
     return Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,"0")}`);
   }
@@ -8068,6 +8053,7 @@ if ("serviceWorker" in navigator) {
     return /^\d{4}$/.test(key) ? key : monthName(key);
   }
 
+  window.rc35SelectedCategory=function(){ return rc35SelectedCategory(); };
   function rc35SelectedCategory(){
     const v=document.getElementById("rc35CategorySelect")?.value||"";
     if(!v) return null;
@@ -8139,20 +8125,18 @@ if ("serviceWorker" in navigator) {
       row.className="history-controls";
       row.style.cssText="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)";
       row.innerHTML=`
-        <label>השוואה<select id="rc35ScopeSelect">
-          <option value="months">בין חודשי השנה</option>
-          <option value="years">בין שנים</option>
-        </select></label>
-        <label>נתון<select id="rc35TypeSelect">
+        <label style="flex:1;min-width:0">קטגוריה<select id="rc35CategorySelect" style="width:100%"><option value="">כללי</option></select></label>
+        <label style="flex:1;min-width:0">נתון<select id="rc35TypeSelect" style="width:100%">
           <option value="both">שניהם</option>
           <option value="expenses">הוצאות</option>
           <option value="income">הכנסות</option>
-        </select></label>
-        <label>קטגוריה<select id="rc35CategorySelect"><option value="">כללי</option></select></label>`;
+        </select></label>`;
       controls.appendChild(row);
-      document.getElementById("rc35ScopeSelect").onchange=function(){ rc35SetScope(this.value); };
       document.getElementById("rc35TypeSelect").onchange=function(){ rc35SetChartMode(this.value); };
-      document.getElementById("rc35CategorySelect").onchange=renderTopChart;
+      document.getElementById("rc35CategorySelect").onchange=function(){
+        renderTopChart();
+        if(typeof window.histApplyVisibility==="function") window.histApplyVisibility();
+      };
     }
     rc35PopulateCategories();
 
@@ -8176,8 +8160,10 @@ if ("serviceWorker" in navigator) {
         <div class="rc35-chart-hint">אפשר ללחוץ על כל עמודה כדי לעבור מיד לפירוט שלה</div>`;
     }
 
-    // Controls first, then the chart they drive, in reading order.
-    if(controls.nextElementSibling!==card) controls.insertAdjacentElement("afterend",card);
+    // The chart sits at the very top of the page, with the fields that drive it
+    // directly below it, and the detail/breakdown content below that.
+    if(page.firstElementChild!==card) page.insertBefore(card,page.firstChild);
+    if(card.nextElementSibling!==controls) card.insertAdjacentElement("afterend",controls);
 
     // Hide the older annual chart card so there is only one comparison graph.
     const oldBars=document.getElementById("annualBarChart");
@@ -8189,7 +8175,15 @@ if ("serviceWorker" in navigator) {
 
 
   let rc35ChartMode="both";
-  let rc35Scope="months";
+
+  // The comparison chart's scope (months-of-a-year vs. years) follows the same
+  // "חודש / שנה" toggle at the top of this card, instead of asking the same
+  // "thinking in months or years?" question again in a second control: picking
+  // "חודש" means you're focused on one month, so the chart compares that year's
+  // months; picking "שנה" means you're focused on one year, so it compares years.
+  function rc35Scope(){
+    return document.getElementById("historyYearBtn")?.classList.contains("active") ? "years" : "months";
+  }
 
   function rc35SelectedMonthKey(){
     const y=document.getElementById("historyMonthYear")?.value;
@@ -8201,13 +8195,6 @@ if ("serviceWorker" in navigator) {
     rc35ChartMode=mode;
     const sel=document.getElementById("rc35TypeSelect");
     if(sel) sel.value=mode;
-    renderTopChart();
-  }
-
-  function rc35SetScope(scope){
-    rc35Scope=scope;
-    const sel=document.getElementById("rc35ScopeSelect");
-    if(sel) sel.value=scope;
     renderTopChart();
   }
 
@@ -8245,7 +8232,7 @@ if ("serviceWorker" in navigator) {
     const rows=keys.map(k=>periodTotals(k,category));
 
     if(subEl){
-      subEl.textContent = rc35Scope==="years"
+      subEl.textContent = rc35Scope()==="years"
         ? "לחיצה על שנה תפתח את הניתוח השנתי שלה"
         : `חודשי שנת ${rc35CurrentYear()} · לחיצה על חודש תפתח את הניתוח שלו`;
     }
@@ -8259,7 +8246,7 @@ if ("serviceWorker" in navigator) {
         target.innerHTML='<div class="rc32-empty">אין עדיין נתונים להצגת השוואה עבור הקטגוריה הזו.</div>';
         return;
       }
-      target.innerHTML=`<div class="rc32-chart">${rows.map((r,i)=>{
+      target.innerHTML=`<div class="rc32-chart" style="grid-template-columns:repeat(${rows.length},minmax(56px,1fr));min-width:${Math.max(620,rows.length*70)}px">${rows.map((r,i)=>{
         const v=values[i];
         const h=Math.max(v?4:0,Math.round(v/max*210));
         return `<div class="rc32-month" data-key="${r.key}" title="${rc35Label(r.key)} · ${category.name} ${v}">
@@ -8285,8 +8272,8 @@ if ("serviceWorker" in navigator) {
         target.innerHTML='<div class="rc32-empty">אין עדיין מספיק נתונים להצגת השוואה.</div>';
         return;
       }
-      const selected=rc35Scope==="months"?rc35SelectedMonthKey():"";
-      target.innerHTML=`<div class="rc32-chart">${rows.map(r=>{
+      const selected=rc35Scope()==="months"?rc35SelectedMonthKey():"";
+      target.innerHTML=`<div class="rc32-chart" style="grid-template-columns:repeat(${rows.length},minmax(56px,1fr));min-width:${Math.max(620,rows.length*70)}px">${rows.map(r=>{
         const ih=Math.max(r.income?4:0,Math.round(r.income/max*210));
         const eh=Math.max(r.expenses?4:0,Math.round(r.expenses/max*210));
         const showIncome=rc35ChartMode==="income"||rc35ChartMode==="both";
@@ -8312,7 +8299,7 @@ if ("serviceWorker" in navigator) {
     target.querySelectorAll(".rc32-month[data-key]").forEach(el=>{
       el.addEventListener("click",()=>{
         const key=el.dataset.key;
-        if(rc35Scope==="years"){
+        if(rc35Scope()==="years"){
           const yearSel=document.getElementById("historyMonthYear");
           const annualSel=document.getElementById("annualYear");
           if(yearSel) yearSel.value=key;
