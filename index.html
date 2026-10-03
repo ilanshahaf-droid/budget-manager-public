@@ -958,6 +958,7 @@ body{
 .rc35-amt-expense{color:#d14b4b;font-weight:800;white-space:nowrap}
 .rc35-amt-pair{display:flex;align-items:center;gap:8px}
 .rc35-amt-sep{color:var(--muted);font-weight:400}
+.rc35-est-badge{display:inline-block;margin-right:6px;padding:2px 8px;border-radius:99px;background:#fef3c7;color:#854d0e;font-size:11px;font-weight:800;vertical-align:middle}
 /* Same purple/white look as the חודש/שנה toggle above this row, applied to all three
    fields (שנה, חודש, קטגוריה) so the whole row reads as one consistent control family
    instead of a plain gray dropdown row. */
@@ -7699,13 +7700,11 @@ if ("serviceWorker" in navigator) {
     const key=`${y}-${mo}`;
     const tx=allTx().filter(x=>typeof budgetMonth==="function" ? budgetMonth(x)===key : (x.date||"").slice(0,7)===key);
     const income=tx.reduce((a,x)=>a+(typeof incomeAmount==="function"?incomeAmount(x):0),0);
-    const rawExp=tx.reduce((a,x)=>a+(typeof expenseAmount==="function"?expenseAmount(x):0),0);
+    const rawExpActual=tx.reduce((a,x)=>a+(typeof expenseAmount==="function"?expenseAmount(x):0),0);
     const savings=tx.filter(x=>{
       const c=typeof norm==="function"?norm(x.category):x.category;
       return c==="תכנית חיסכון"||c==="חיסכון";
     }).reduce((a,x)=>a+(typeof expenseAmount==="function"?expenseAmount(x):0),0);
-    const expenses=rawExp-savings;
-    const balance=income-rawExp;
 
     const byCat={};
     tx.filter(x=>(x.type||"").toLowerCase()==="expense").forEach(x=>{
@@ -7714,6 +7713,30 @@ if ("serviceWorker" in navigator) {
       if(nc==="תכנית חיסכון"||nc==="חיסכון") return;
       byCat[c]=(byCat[c]||0)+(typeof expenseAmount==="function"?expenseAmount(x):Math.abs(Number(x.amount||0)));
     });
+
+    // Kibbutz expenses (4 categories) only arrive ~a month late. Until that month's real
+    // file is imported, add an estimate based on recent months' averages — the same
+    // number already reserved in the "available to spend" forecast — so this month's
+    // totals aren't misleadingly low in the meantime. It disappears on its own the moment
+    // the real import lands, because reconcileKibbutzExpectedExpenses marks it paid then.
+    let kibbutzEstimateTotal=0;
+    const kibbutzEstimatedCats=[];
+    if(typeof ensureKibbutzExpectedExpenses==="function") ensureKibbutzExpectedExpenses();
+    if(typeof reconcileKibbutzExpectedExpenses==="function") reconcileKibbutzExpectedExpenses();
+    (typeof KIBBUTZ_FORECAST_CATS!=="undefined"?KIBBUTZ_FORECAST_CATS:[]).forEach(cat=>{
+      const pending=(state.expectedExpenses||[]).find(e=>e.autoKibbutz===true && e.month===key && e.kibbutzCategory===cat && !e.paid);
+      if(!pending) return;
+      const amt=Number(pending.amount)||0;
+      if(amt<=0) return;
+      byCat[cat]=(byCat[cat]||0)+amt;
+      kibbutzEstimateTotal+=amt;
+      kibbutzEstimatedCats.push(cat);
+    });
+
+    const rawExp=rawExpActual+kibbutzEstimateTotal;
+    const expenses=rawExp-savings;
+    const balance=income-rawExp;
+
     const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
     const maxCat=Math.max(1,...cats.map(x=>x[1]));
     const rc34Insights=rc34BuildInsights(key,byCat);
@@ -7726,6 +7749,7 @@ if ("serviceWorker" in navigator) {
         <div class="history-kpi"><small>חיסכון</small><b>${fmtLocal(savings)}</b></div>
         <div class="history-kpi"><small>מאזן</small><b class="${balance>=0?"history-balance-positive":"history-balance-negative"}">${fmtLocal(balance)}</b></div>
       </div>
+      ${kibbutzEstimateTotal>0?`<div class="muted tiny" style="margin:4px 2px 0">כולל הערכה של ${fmtLocal(kibbutzEstimateTotal)} להוצאות קיבוץ שטרם דווחו החודש (${kibbutzEstimatedCats.length} קטגוריות) — מבוסס על ממוצע חודשים קודמים, ותוחלף אוטומטית ברגע שתטען את הקובץ האמיתי.</div>`:""}
       <div id="rc36DonutPanel" class="rc36-donut-panel"></div>
       <div class="history-insights">
         <div class="history-insights-head">
@@ -7741,7 +7765,7 @@ if ("serviceWorker" in navigator) {
         <div class="history-section-title">הוצאות לפי קטגוריה</div>
         ${cats.length?cats.map(([c,v])=>`
           <div class="history-cat-row">
-            <div class="category-edit-head"><div class="category-edit-title-wrap"><b>${c}</b></div><button class="category-edit-button" type="button" onclick="event.stopPropagation();editCategoryBudgetEncoded('${encodeURIComponent(c)}')">✏️ עריכה</button></div>
+            <div class="category-edit-head"><div class="category-edit-title-wrap"><b>${c}</b>${kibbutzEstimatedCats.includes(c)?'<span class="rc35-est-badge">משוער</span>':""}</div><button class="category-edit-button" type="button" onclick="event.stopPropagation();editCategoryBudgetEncoded('${encodeURIComponent(c)}')">✏️ עריכה</button></div>
             <div class="history-cat-bar"><i style="width:${Math.max(3,v/maxCat*100)}%"></i></div>
             <b>${fmtLocal(v)}</b>
           </div>`).join(""):`<div class="history-empty">אין הוצאות בחודש זה</div>`}
@@ -8111,6 +8135,18 @@ if ("serviceWorker" in navigator) {
         expenses += typeof expenseAmount==="function"?expenseAmount(x):Math.abs(Number(x.amount||0));
       }
     });
+    // Same kibbutz estimate shown in the month detail view: a category's real data
+    // usually lands about a month late, so until then this adds the averaged estimate
+    // instead of leaving the bar at 0 — and it stops adding anything the moment the
+    // real import reconciles that category for that month (state.expectedExpenses
+    // marks it paid then, so the lookup below simply finds nothing more to add).
+    if(!isYear && (!categoryFilter || categoryFilter.type==="expense")){
+      const relevantCats = categoryFilter ? [categoryFilter.name] : (typeof KIBBUTZ_FORECAST_CATS!=="undefined"?KIBBUTZ_FORECAST_CATS:[]);
+      relevantCats.forEach(cat=>{
+        const pending=(state.expectedExpenses||[]).find(e=>e.autoKibbutz===true && e.month===key && e.kibbutzCategory===cat && !e.paid);
+        if(pending) expenses+=Number(pending.amount)||0;
+      });
+    }
     return {key,income,expenses};
   }
 
@@ -8279,6 +8315,9 @@ if ("serviceWorker" in navigator) {
     if(!ensureTopChart()) return;
     const target=document.getElementById("rc32MonthChart");
     if(!target) return;
+
+    if(typeof ensureKibbutzExpectedExpenses==="function") ensureKibbutzExpectedExpenses();
+    if(typeof reconcileKibbutzExpectedExpenses==="function") reconcileKibbutzExpectedExpenses();
 
     const subEl=document.getElementById("rc32ChartSub");
     const legendEl=document.getElementById("rc32Legend");
