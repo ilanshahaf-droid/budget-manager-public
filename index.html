@@ -3143,10 +3143,10 @@ completion is excluded from all analytical totals, preventing double-counting.
     <div><b>הקרנות שלי</b><div class="muted tiny">לחץ "עדכן יתרה" בכל פעם שמגיע דוח חדש, כדי לבנות גרף צמיחה</div></div>
     <div class="ux-att-actions">
       <button type="button" onclick="addFund()">+ הוסף קרן</button>
-      <button type="button" class="secondary" onclick="triggerFundDocUpload()">📄 טען מסמך</button>
+      <button type="button" class="secondary" onclick="triggerFundDocUpload()">📄 טען CSV/Excel</button>
     </div>
   </div>
-  <input type="file" id="fundDocInput" accept=".pdf,.csv,.xlsx,.xls,image/*" style="display:none" onchange="onFundDocSelected(event)">
+  <input type="file" id="fundDocInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="onFundDocSelected(event)">
   <div id="fundImportStatus" class="muted tiny" style="margin:0 4px 8px"></div>
   <div id="fundImportReview"></div>
 
@@ -3287,22 +3287,6 @@ completion is excluded from all analytical totals, preventing double-counting.
  <div class="card"><div class="row between"><b>כללי שיוך לחודש תקציבי</b></div><div class="tiny muted" style="margin-top:6px">לפי התאריך שמופיע ב-Spendee</div><div id="pendingInfo" class="tiny" style="margin-top:8px"></div></div>
 <div class="muted tiny" style="text-align:center;margin:18px">הנתונים נשמרים מקומית, וכשהסנכרון מחובר — גם בענן Supabase</div>
 
- <div class="card" style="margin-top:12px">
-  <b>🤖 מפתח AI</b>
-  <div class="muted tiny" style="margin:6px 0 10px">לזיהוי אוטומטי של מסמכי קרנות (קרנות וחיסכון פנסיוני)</div>
-  <div class="row" style="gap:8px;flex-wrap:wrap">
-   <input id="coachApiKey" type="password" placeholder="מפתח API (אופציונלי)" style="flex:1;min-width:180px" autocomplete="off">
-   <select id="coachApiProvider" style="min-width:140px">
-    <option value="gemini">Google Gemini</option>
-    <option value="xai">xAI (Grok)</option>
-    <option value="openai">OpenAI</option>
-    <option value="groq">Groq (חינם, ללא כרטיס אשראי)</option>
-    <option value="claude">Claude (Anthropic)</option>
-   </select>
-   <button type="button" onclick="saveCoachApiSettings()" style="min-height:42px;font-weight:850">שמור מפתח</button>
-  </div>
-  <div id="coachApiStatus" class="tiny" style="margin-top:10px;font-weight:700;color:#666">לחץ «שמור מפתח» אחרי ההדבקה</div>
- </div>
 </div>
 </div>
 
@@ -4511,36 +4495,22 @@ async function onFundDocSelected(event){
   try{
     const fileParts=await fundDocToParts(file);
 
-    // CSV/Excel with a recognizable balance column: parse locally, no API/AI needed at all.
+    // CSV/Excel with a recognizable balance column: parse locally — no API, no AI, no key.
     if(fileParts.kind==="text"){
       const csvBody=fileParts.text.replace(/^תוכן קובץ ה-CSV:\n|^תוכן קובץ האקסל:\n/,"");
       const localItems=parseFundsCSVLocally(csvBody);
       if(localItems && localItems.length){
-        fundImportSetStatus(`זוהו ${localItems.length} רשומות ישירות מהקובץ (ללא צורך ב-AI). בדוק ואשר למטה לפני שמירה.`);
+        fundImportSetStatus(`זוהו ${localItems.length} רשומות מהקובץ. בדוק ואשר למטה לפני שמירה.`);
         renderFundImportReview(localItems);
         return;
       }
+      fundImportSetStatus('לא נמצאה עמודת "יתרה" מזוהה בקובץ. ודא שיש עמודה בשם "יתרה" (או "שווי"), או הוסף את הקרן ידנית למטה.',true);
+      return;
     }
 
-    // Anything else (PDF/image, or a CSV/Excel without a recognizable balance column) needs AI.
-    const cfg=typeof window.providerConfig==="function"?window.providerConfig():null;
-    if(!cfg||!cfg.key){
-      fundImportSetStatus(
-        fileParts.kind==="text"
-          ? 'לא נמצאה עמודת "יתרה" מזוהה בקובץ, כך שלא ניתן לפענח אותו בלי AI. אפשר להוסיף עמודת יתרה, להזין ידנית, או להגדיר מפתח API בהגדרות → "מפתח AI".'
-          : 'צריך מפתח API בהגדרות → "מפתח AI" כדי לקרוא קובץ PDF/תמונה.',
-        true
-      );
-      return;
-    }
-    fundImportSetStatus("שולח למודל לניתוח… (עד 30 שניות)");
-    const items=await extractFundsFromParts(cfg,fileParts);
-    if(!items.length){
-      fundImportSetStatus("לא זוהו קרנות במסמך. אפשר לנסות קובץ אחר או להזין ידנית.",true);
-      return;
-    }
-    fundImportSetStatus(`זוהו ${items.length} רשומות. בדוק ואשר למטה לפני שמירה.`);
-    renderFundImportReview(items);
+    // PDF/image: this app doesn't call any external AI service, so these can't be
+    // auto-read. Enter the fund manually with "+ הוסף קרן" instead.
+    fundImportSetStatus('קובצי PDF/תמונה לא נקראים אוטומטית. אפשר לייצא/להעתיק את הנתונים לקובץ CSV עם עמודת "יתרה", או להוסיף את הקרן ידנית למטה.',true);
   }catch(e){
     console.error(e);
     fundImportSetStatus("שגיאה: "+(e.message||e),true);
