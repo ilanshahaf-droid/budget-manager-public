@@ -4323,6 +4323,82 @@ async function fundDocToParts(file){
 // Text-only providers (Groq's default free model, etc.) can still handle CSV/Excel,
 // just not photos or PDFs of a document.
 const FUND_DOC_VISION_PROVIDERS=new Set(["gemini","claude"]);
+// Local, API-free CSV/Excel parser: handles the common case of a spreadsheet with a
+// recognizable balance column, with no AI call and no API key required. Falls back to
+// the AI pipeline only when this can't confidently identify a balance per row (e.g. a
+// PDF/image, or a CSV that lists deposits/transactions rather than a balance).
+function parseCSVLine(line){
+  const out=[]; let cur=""; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(inQ){
+      if(c==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else inQ=false; }
+      else cur+=c;
+    }else{
+      if(c==='"') inQ=true;
+      else if(c===','){ out.push(cur); cur=""; }
+      else cur+=c;
+    }
+  }
+  out.push(cur);
+  return out.map(s=>s.trim());
+}
+function parseFundsCSVLocally(csvText){
+  const lines=String(csvText||"").split(/\r\n|\n|\r/).filter(l=>l.trim()!=="");
+  if(lines.length<2) return null;
+  const header=parseCSVLine(lines[0]).map(h=>h.trim());
+  const findCol=(...needles)=>header.findIndex(h=>{
+    const hl=h.toLowerCase();
+    return needles.some(n=>hl.includes(n.toLowerCase()));
+  });
+  const balanceIdx=findCol("יתרה","שווי כספי","שווי","balance","value");
+  if(balanceIdx<0) return null; // no recognizable balance column — needs AI (or isn't a balance doc)
+  const typeIdx=findCol("סוג","type");
+  const providerIdx=findCol("חברה מנהלת","שם קופה","שם קרן","חברה","קופה","קרן","provider","fund name");
+  const trackIdx=findCol("מסלול","track");
+  const fundNumIdx=findCol("מס' קופה","מספר קופה","מס קופה","מס' מה","מספר קרן","fund number","fund id");
+  const accountIdx=findCol("מספר חשבון","מס' חשבון","מס חשבון","account");
+  const dateIdx=findCol("תאריך","נכון ליום","date");
+  const moneyNum=s=>Number(String(s||"").replace(/[^\d.\-]/g,""))||0;
+  const typeKeys=Object.keys(FUND_TYPES);
+  const guessType=label=>{
+    const l=String(label||"");
+    if(l.includes("פנסי")||/pension/i.test(l)) return "pension";
+    if(l.includes("השתלמ")||/hishtalmut/i.test(l)) return "hishtalmut";
+    if(l.includes("גמל")||/gemel/i.test(l)) return "gemel";
+    if(l.includes("פיצוי")||/severance/i.test(l)) return "severance";
+    return typeKeys.includes(l)?l:"other";
+  };
+  const parseDate=s=>{
+    const v=String(s||"").trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return {date:v,guessed:false};
+    const m=v.match(/^(\d{1,2})[./](\d{1,2})[./](\d{2,4})$/);
+    if(m){
+      let [,d,mo,y]=m;
+      if(y.length===2) y="20"+y;
+      return {date:`${y}-${mo.padStart(2,"0")}-${d.padStart(2,"0")}`,guessed:false};
+    }
+    return {date:new Date().toISOString().slice(0,10),guessed:true};
+  };
+  const items=[];
+  for(let i=1;i<lines.length;i++){
+    const cols=parseCSVLine(lines[i]);
+    const balance=moneyNum(cols[balanceIdx]);
+    if(!balance) continue; // skip rows without a usable balance
+    const d=dateIdx>=0?parseDate(cols[dateIdx]):{date:new Date().toISOString().slice(0,10),guessed:true};
+    items.push({
+      type:guessType(typeIdx>=0?cols[typeIdx]:""),
+      provider:providerIdx>=0?String(cols[providerIdx]||"").trim():"",
+      trackName:trackIdx>=0?String(cols[trackIdx]||"").trim():"",
+      fundNumber:fundNumIdx>=0?String(cols[fundNumIdx]||"").trim():"",
+      accountNumber:accountIdx>=0?String(cols[accountIdx]||"").trim():"",
+      balance,
+      date:d.date,
+      dateGuessed:d.guessed
+    });
+  }
+  return items;
+}
 function parseFundsJsonArray(textOut){
   textOut=String(textOut||"").replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
   let parsed;
@@ -4427,11 +4503,6 @@ async function onFundDocSelected(event){
   event.target.value="";
   if(!file) return;
   ensureV4State();
-  const cfg=typeof window.providerConfig==="function"?window.providerConfig():null;
-  if(!cfg||!cfg.key){
-    fundImportSetStatus('צריך קודם להגדיר מפתח API בהגדרות → "מפתח AI".',true);
-    return;
-  }
   if(file.size>15*1024*1024){
     fundImportSetStatus("הקובץ גדול מדי (מעל 15MB).",true);
     return;
@@ -4439,6 +4510,29 @@ async function onFundDocSelected(event){
   fundImportSetStatus("קורא את הקובץ…");
   try{
     const fileParts=await fundDocToParts(file);
+
+    // CSV/Excel with a recognizable balance column: parse locally, no API/AI needed at all.
+    if(fileParts.kind==="text"){
+      const csvBody=fileParts.text.replace(/^תוכן קובץ ה-CSV:\n|^תוכן קובץ האקסל:\n/,"");
+      const localItems=parseFundsCSVLocally(csvBody);
+      if(localItems && localItems.length){
+        fundImportSetStatus(`זוהו ${localItems.length} רשומות ישירות מהקובץ (ללא צורך ב-AI). בדוק ואשר למטה לפני שמירה.`);
+        renderFundImportReview(localItems);
+        return;
+      }
+    }
+
+    // Anything else (PDF/image, or a CSV/Excel without a recognizable balance column) needs AI.
+    const cfg=typeof window.providerConfig==="function"?window.providerConfig():null;
+    if(!cfg||!cfg.key){
+      fundImportSetStatus(
+        fileParts.kind==="text"
+          ? 'לא נמצאה עמודת "יתרה" מזוהה בקובץ, כך שלא ניתן לפענח אותו בלי AI. אפשר להוסיף עמודת יתרה, להזין ידנית, או להגדיר מפתח API בהגדרות → "מפתח AI".'
+          : 'צריך מפתח API בהגדרות → "מפתח AI" כדי לקרוא קובץ PDF/תמונה.',
+        true
+      );
+      return;
+    }
     fundImportSetStatus("שולח למודל לניתוח… (עד 30 שניות)");
     const items=await extractFundsFromParts(cfg,fileParts);
     if(!items.length){
