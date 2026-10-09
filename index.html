@@ -959,6 +959,17 @@ body{
 .rc35-amt-pair{display:flex;align-items:center;gap:8px}
 .rc35-amt-sep{color:var(--muted);font-weight:400}
 .rc35-est-badge{display:inline-block;margin-right:6px;padding:2px 8px;border-radius:99px;background:#fef3c7;color:#854d0e;font-size:11px;font-weight:800;vertical-align:middle}
+.budget-goal-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.budget-goal-row label{flex:1;min-width:140px;font-size:13px;color:var(--muted)}
+.budget-goal-row input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;font-size:15px}
+.budget-cat-list{margin-top:10px}
+.budget-cat-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.budget-cat-row:last-child{border-bottom:0}
+.budget-cat-icon{width:34px;height:34px;flex:0 0 34px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.budget-cat-name{flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.budget-cat-amount{width:88px;box-sizing:border-box;padding:7px 8px;border:1px solid var(--line);border-radius:10px;font-size:14px;text-align:center}
+.budget-cat-del{background:none;border:0;font-size:16px;cursor:pointer;opacity:.6;padding:4px}
+.budget-cat-del:hover{opacity:1}
 /* Same purple/white look as the חודש/שנה toggle above this row, applied to all three
    fields (שנה, חודש, קטגוריה) so the whole row reads as one consistent control family
    instead of a plain gray dropdown row. */
@@ -1555,9 +1566,13 @@ body{
 }
 .history-kpi small{display:block;color:var(--muted);font-size:14px;margin-bottom:5px}
 .history-kpi b{display:block;font-size:26px}
+.history-kpi-sub{display:block;font-style:normal;color:var(--muted);font-size:11px;margin-top:3px}
 .history-balance-positive{color:var(--ok)}
 .history-balance-negative{color:#c83b3b}
 .history-section-title{font-size:20px;font-weight:900;margin-bottom:12px}
+.history-subnav{display:flex;gap:6px;margin:0 0 12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px}
+.history-subnav button{flex:1;border:none;background:transparent;border-radius:9px;padding:9px 4px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer}
+.history-subnav button.active{background:var(--primary);color:#fff}
 .history-cat-row{
   display:grid;grid-template-columns:minmax(150px,1fr) minmax(180px,2fr) auto;
   gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)
@@ -1567,6 +1582,7 @@ body{
 .history-cat-bar i{display:block;height:100%;background:var(--primary);border-radius:999px}
 .history-empty{padding:28px;text-align:center;color:var(--muted);font-size:18px}
 #historyMonthTransactions td,#historyMonthTransactions th{font-size:15px}
+.history-tx-search{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:15px;margin:10px 0}
 @media(max-width:760px){
   .history-month-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .history-cat-row{grid-template-columns:1fr}
@@ -1581,13 +1597,23 @@ body{
   grid-template-columns:none!important;
 }
 .modern-bottom-nav button{flex:1;min-width:0}
+.home-month-nav{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:2px 0 14px
+}
+.home-month-arrow{
+  width:40px;height:40px;border-radius:999px;border:1px solid var(--line);
+  background:#fff;font-size:20px;line-height:1;color:var(--text);cursor:pointer
+}
+.home-month-arrow:active{background:#f1f2f6}
+.home-month-label{font-size:19px;font-weight:900}
 .home-hero{
   border-radius:22px;
   padding:18px 16px 16px;
   margin:0 0 14px;
-  background:linear-gradient(145deg,#4f46e5 0%,#7c3aed 55%,#a855f7 100%);
+  background:var(--primary);
   color:#fff;
-  box-shadow:0 12px 32px rgba(79,70,229,.28);
+  box-shadow:0 10px 26px rgba(91,75,138,.25);
 }
 .home-hero .eyebrow{font-size:12px;font-weight:800;opacity:.85;margin-bottom:6px}
 .home-hero .status{font-size:15px;font-weight:800;opacity:.95;margin-bottom:4px}
@@ -1601,6 +1627,25 @@ body{
 }
 .home-hero-actions .primary{background:#fff;color:#4f46e5}
 .home-hero-actions .ghost{background:rgba(255,255,255,.16);color:#fff}
+.home-kpi-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px
+}
+.home-kpi-card{
+  background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;
+  box-shadow:0 2px 8px rgba(30,20,60,.04)
+}
+.home-kpi-card.clickable{cursor:pointer}
+.home-kpi-ic{
+  width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+  font-size:15px;margin-bottom:8px;background:#f1effa;color:var(--primary)
+}
+.home-kpi-card.expense .home-kpi-ic{background:#fde8e8;color:#c0392b}
+.home-kpi-card.income .home-kpi-ic{background:#e6f7ee;color:#1e8e5a}
+.home-kpi-card.balance .home-kpi-ic{background:#e8eefc;color:#2c5bd6}
+.home-kpi-card.saving .home-kpi-ic{background:#f1e9fb;color:#7b3fc4}
+.home-kpi-label{font-size:12.5px;color:var(--muted);font-weight:700;margin-bottom:2px}
+.home-kpi-value{font-size:19px;font-weight:900;color:var(--text)}
+.home-kpi-sub{font-size:11.5px;color:var(--muted);margin-top:2px;min-height:14px}
 .home-urgent{
   margin:0 0 12px;border-radius:16px;padding:12px 14px;border:1px solid #fecaca;background:#fef2f2
 }
@@ -1640,6 +1685,14 @@ body{
 .more-list button small{font-weight:700;color:#94a3b8;font-size:12px}
 /* move auto tools off home visually when inside #budgetPage hidden zone */
 #budgetPage > .modern-month-dashboard > #autoToolsAcc{display:none!important}
+/* Home now mirrors the clean month-nav + hero + 4-KPI layout only; these older,
+   denser blocks stay in the DOM (scripts still populate their hidden-by-default
+   target elements) but are not shown. */
+#budgetPage .home-secondary,
+#budgetPage .focus-strip,
+#budgetPage .month-hero,
+#budgetPage .forecast-card,
+#budgetPage #rc50ForecastBreakdown{display:none!important}
 
 </style>
 
@@ -2526,24 +2579,46 @@ completion is excluded from all analytical totals, preventing double-counting.
 
 <div id="budgetPage" class="page active">
   <div class="modern-month-dashboard">
+    <div class="home-month-nav">
+      <button type="button" class="home-month-arrow" onclick="homeMonthShift(-1)" aria-label="חודש קודם">‹</button>
+      <span id="homeMonthLabel" class="home-month-label">—</span>
+      <button type="button" class="home-month-arrow" onclick="homeMonthShift(1)" aria-label="חודש הבא">›</button>
+    </div>
     <div class="home-hero" id="homeHero">
-      <div class="eyebrow">החודש הנוכחי</div>
+      <div class="eyebrow" id="homeHeroEyebrow">החודש הנוכחי</div>
       <div class="status" id="homeStatus">טוען מצב…</div>
       <div class="big" id="homeBigValue">—</div>
       <div class="subline" id="homeSubline">תחזית לסוף החודש</div>
       <div class="home-hero-actions">
-        <button type="button" class="primary" onclick="showPage('coach')">מה לעשות השבוע?</button>
         <button type="button" class="ghost" onclick="showPage('forecast')">פירוט תחזית</button>
       </div>
     </div>
-    <div id="homeUrgent" class="home-urgent" hidden>
-      <h4>דורש טיפול</h4>
-      <ul id="homeUrgentList"></ul>
-    </div>
-    <div class="modern-topbar">
-      <span class="home">⌂</span>
-      <span class="title">החודש</span>
-      <span style="width:32px"></span>
+
+    <div class="home-kpi-grid">
+      <div class="home-kpi-card expense clickable" onclick="openFinanceBreakdown('expenses')" role="button" tabindex="0">
+        <div class="home-kpi-ic">↘</div>
+        <div class="home-kpi-label">הוצאות</div>
+        <div id="modernExpense" class="home-kpi-value">₪0</div>
+        <div id="modernExpenseSub" class="home-kpi-sub"></div>
+      </div>
+      <div class="home-kpi-card income clickable" onclick="openFinanceBreakdown('income')" role="button" tabindex="0">
+        <div class="home-kpi-ic">↗</div>
+        <div class="home-kpi-label">הכנסות</div>
+        <div id="modernIncome" class="home-kpi-value">₪0</div>
+        <div id="modernIncomeSub" class="home-kpi-sub"></div>
+      </div>
+      <div class="home-kpi-card balance">
+        <div class="home-kpi-ic">⚖️</div>
+        <div class="home-kpi-label">מאזן</div>
+        <div id="modernNet" class="home-kpi-value">₪0</div>
+        <div id="modernNetSub" class="home-kpi-sub"></div>
+      </div>
+      <div class="home-kpi-card saving">
+        <div class="home-kpi-ic">🐷</div>
+        <div class="home-kpi-label">חיסכון</div>
+        <div id="modernSaving" class="home-kpi-value">₪0</div>
+        <div id="modernSavingSub" class="home-kpi-sub"></div>
+      </div>
     </div>
 
     <div class="home-secondary">
@@ -2556,11 +2631,6 @@ completion is excluded from all analytical totals, preventing double-counting.
         <div id="modernForecast" class="value">₪0</div>
         <div class="sub">לחץ לפירוט החישוב</div>
       </div>
-      <div class="modern-card saving">
-        <div class="label"><span class="icon">👛</span>חיסכון</div>
-        <div id="modernSaving" class="value">₪0</div>
-        <div id="modernSavingSub" class="sub"></div>
-      </div>
       <div class="modern-card expected clickable" onclick="openExpectedExpensesBreakdown()" role="button" tabindex="0">
         <div class="label"><span class="icon">🧮</span>הוצאות צפויות</div>
         <div id="modernExpected" class="value">₪0</div>
@@ -2571,26 +2641,10 @@ completion is excluded from all analytical totals, preventing double-counting.
         <div id="modernSafety" class="value">₪0</div>
         <div class="sub">שמור בצד</div>
       </div>
-
-      <div class="modern-card income clickable" onclick="openFinanceBreakdown('income')" role="button" tabindex="0">
-        <div class="label"><span class="icon">⬆️</span>הכנסות ↗</div>
-        <div id="modernIncome" class="value">₪0</div>
-        <div id="modernIncomeSub" class="sub"></div>
-      </div>
-      <div class="modern-card expense clickable" onclick="openFinanceBreakdown('expenses')" role="button" tabindex="0">
-        <div class="label"><span class="icon">⬇️</span>הוצאות ↘</div>
-        <div id="modernExpense" class="value">₪0</div>
-        <div id="modernExpenseSub" class="sub"></div>
-      </div>
       <div class="modern-card utilization">
         <div class="label"><span class="icon">%</span>אחוז ניצול המסגרת</div>
         <div id="modernUtilization" class="value">0%</div>
         <div id="modernUtilizationSub" class="sub"></div>
-      </div>
-      <div class="modern-card net">
-        <div class="label"><span class="icon">📈</span>יתרה נטו</div>
-        <div id="modernNet" class="value">₪0</div>
-        <div id="modernNetSub" class="sub"></div>
       </div>
     </div>
 
@@ -2817,7 +2871,7 @@ completion is excluded from all analytical totals, preventing double-counting.
     </div>
   </section>
 
-<details id="financeBreakdown" class="app-accordion">
+<details id="financeBreakdown" class="app-accordion" open>
     <summary id="financeBreakdownTitle">📊 הוצאות בפועל לפי קטגוריה</summary>
     <div class="accordion-body">
       <div id="financeBreakdownHint" class="rc48-breakdown-hint">הסכום הגדול הוא ההוצאה שבוצעה בפועל. המסגרת והיתרה מוצגות כמידע משני.</div>
@@ -2833,7 +2887,7 @@ completion is excluded from all analytical totals, preventing double-counting.
     </div>
   </details>
 
-  <details id="transactionsBreakdown" class="app-accordion">
+  <details id="transactionsBreakdown" class="app-accordion" open>
     <summary>↔ תנועות החודש <span id="count"></span></summary>
     <div class="accordion-body scroll">
       <div id="rc25RecentTx" class="rc25-recent-tx"></div>
@@ -2934,6 +2988,11 @@ completion is excluded from all analytical totals, preventing double-counting.
  </div>
 
  <div class="card">
+  <div class="history-section-title">קטגוריות מובילות</div>
+  <div id="annualTopCats"></div>
+ </div>
+
+ <div class="card">
   <div class="row between">
    <div><b>גרף שנתי</b><div class="muted tiny">השוואת הכנסות והוצאות שדווחו בכל חודש</div></div>
    <div class="chart-switch">
@@ -2957,6 +3016,11 @@ completion is excluded from all analytical totals, preventing double-counting.
 
 
 <div id="insurancePage" class="page">
+  <div class="history-subnav" role="tablist" aria-label="עבר וניתוח">
+    <button type="button" onclick="showPage('annual')">📊 שנתי</button>
+    <button type="button" class="active" onclick="showPage('insurance')">🛡️ ביטוחים</button>
+    <button type="button" onclick="showPage('funds')">🏦 קרנות</button>
+  </div>
   <div class="insurance-head">
     <h2>🛡️ ביטוחים</h2>
     <div class="insurance-filter-controls">
@@ -3058,6 +3122,11 @@ completion is excluded from all analytical totals, preventing double-counting.
 </div>
 
 <div id="fundsPage" class="page">
+  <div class="history-subnav" role="tablist" aria-label="עבר וניתוח">
+    <button type="button" onclick="showPage('annual')">📊 שנתי</button>
+    <button type="button" onclick="showPage('insurance')">🛡️ ביטוחים</button>
+    <button type="button" class="active" onclick="showPage('funds')">🏦 קרנות</button>
+  </div>
   <div class="card">
     <b style="font-size:21px">🏦 קרנות וחיסכון פנסיוני</b>
     <div class="muted" style="margin-top:4px">מעקב יתרות בקרנות פנסיה, השתלמות וגמל — מוזן ידנית, מתעדכן לפי הדוחות שמתקבלים</div>
@@ -3085,14 +3154,19 @@ completion is excluded from all analytical totals, preventing double-counting.
 </div>
 
 <div id="settingsPage" class="page">
- <div class="card"><div class="row between"><div><b>גרסת האפליקציה</b><div class="muted tiny" style="margin-top:4px">הגרסה המותקנת במכשיר זה.</div></div><b style="color:var(--primary)">V4.2 Alpha 8</b></div></div>
- 
+ <div class="card"><div class="row between"><b>גרסת האפליקציה</b><b style="color:var(--primary)">V4.2 Alpha 8</b></div></div>
+
+ <div class="card row between">
+  <div><b>📊 ייצוא דוח Excel מלא</b><div class="muted tiny">עו"ש, עבר וניתוח, ביטוחים, קרנות ועוד</div></div>
+  <button type="button" class="secondary" onclick="exportFullExcelReport()">ייצוא</button>
+ </div>
+
 
  <div class="card cloud-card rc29-cloud-card">
   <div class="rc29-cloud-head">
    <div>
     <b class="rc29-cloud-title">☁️ סנכרון</b>
-    <div class="muted tiny rc29-cloud-sub">שינויים נשמרים אוטומטית ומסתנכרנים בין המכשירים.</div>
+    <div class="muted tiny rc29-cloud-sub">שמירה וסנכרון אוטומטיים</div>
    </div>
    <span id="cloudUser" class="rc29-cloud-user"></span>
   </div>
@@ -3138,7 +3212,7 @@ completion is excluded from all analytical totals, preventing double-counting.
   </details>
  </div>
 
- <div class="card"><b>ייבוא מ־Spendee</b><div class="muted tiny" style="margin:6px 0 10px">יש לבחור קובץ CSV שיוצא מ־Spendee. קובץ Excel ‏(.xlsx) אינו נתמך ישירות.</div>
+ <div class="card"><b>ייבוא מ־Spendee</b><div class="muted tiny" style="margin:6px 0 10px">קובץ CSV בלבד (לא Excel)</div>
  <div class="row" style="gap:8px;flex-wrap:wrap">
    <label class="filebtn">ייבוא CSV מ־Spendee<input id="csvFile" type="file" accept=".csv,text/csv"></label>
    <button id="undoSpendeeImportBtn" class="secondary" type="button" onclick="undoLastSpendeeImport()" disabled>↩ ביטול ייבוא Spendee אחרון</button>
@@ -3149,10 +3223,7 @@ completion is excluded from all analytical totals, preventing double-counting.
 
  <div class="card" id="kibbutzImportCard">
    <b>ייבוא הוצאות קיבוץ</b>
-   <div class="muted tiny" style="margin:6px 0 10px">
-     מוסיף את נתוני חשבון הקיבוץ לתנועות הקיימות ואינו מוחק או מחליף נתוני Spendee.
-     בקובץ עם החזרי בתי ספר המערכת משתמשת ב״עלות נטו״.
-   </div>
+   <div class="muted tiny" style="margin:6px 0 10px">נוסף לתנועות הקיימות, לא מוחק נתוני Spendee</div>
    <label class="filebtn">ייבוא CSV הוצאות קיבוץ
      <input id="kibbutzCsvFile" type="file" accept=".csv,text/csv">
    </label>
@@ -3160,10 +3231,7 @@ completion is excluded from all analytical totals, preventing double-counting.
  </div>
 <div class="card" id="creditAuditCard">
    <b>💳 בקרת כרטיסי אשראי</b>
-   <div class="muted tiny" style="margin:6px 0 10px">
-     קובץ האשראי משמש לבקרה מול Spendee. הוא אינו מוסיף הוצאות חדשות; תיקון סכום מתבצע רק לאחר אישור מפורש שלך.
-     אפשר לטעון XLSX / XLS / CSV.
-   </div>
+   <div class="muted tiny" style="margin:6px 0 10px">בקרה מול Spendee בלבד — ללא הוספת הוצאות אוטומטית</div>
    <div class="credit-wizard" id="creditWizard">
      <b style="font-size:13px">אשף חודשי מקוצר</b>
      <div class="muted tiny" style="margin-top:4px">1) טען קובץ → 2) התאמות אוטומטיות → 3) אשר רק חריגים</div>
@@ -3188,29 +3256,40 @@ completion is excluded from all analytical totals, preventing double-counting.
      <button class="secondary" type="button" onclick="clearCreditAudit()" style="margin-top:10px">מחק נתוני בקרת אשראי</button>
    </div>
  </div>
- <div class="card"><b>מסגרות תקציב</b><div class="muted tiny" style="margin:6px 0 10px">יעדי הכנסה, חיסכון ומסגרות לפי קטגוריה.</div><button class="secondary" onclick="editSettings()">עריכת מסגרות</button></div>
- <div class="card"><div class="row between"><div><b>מרווח ביטחון</b><div class="muted tiny" style="margin:6px 0 0">סכום שאתה בוחר לשמור בצד בנוסף לחיסכון ולהוצאות הצפויות. הוא מופחת מ״כמה באמת נשאר לי״ אך אינו נחשב כהוצאה.</div></div><button class="secondary" onclick="editSafetyBuffer()">הגדר מרווח</button></div><div id="safetyBufferStatus" class="tiny" style="margin-top:8px"></div></div>
- <div class="card"><div class="row between"><div><b>הוצאות צפויות / מחויבויות</b><div class="muted tiny" style="margin-top:4px">הוצאות שעדיין לא הופיעו ב-Spendee אך צריך לשמור עבורן כסף. כשהחיוב מגיע אפשר לסמן ששולם.</div></div><button class="secondary" onclick="addExpectedExpense()">+ הוסף הוצאה צפויה</button></div><div id="expectedList" style="margin-top:10px"></div></div>
- 
- 
+ <div class="card">
+  <b>יעדים חודשיים</b>
+  <div class="budget-goal-row">
+    <label>יעד הכנסה<input id="goalIncome" type="number" inputmode="decimal"></label>
+    <label>יעד חיסכון<input id="goalSaving" type="number" inputmode="decimal"></label>
+  </div>
+  <button class="secondary" type="button" onclick="saveMonthlyGoals()" style="margin-top:10px">שמור יעדים</button>
+ </div>
+ <div class="card">
+  <div class="row between"><b>מסגרות לפי קטגוריה</b><button class="secondary" type="button" onclick="addBudgetCategory()">+ קטגוריה</button></div>
+  <div id="budgetCategoryList" class="budget-cat-list"></div>
+ </div>
+ <div class="card"><div class="row between"><div><b>מרווח ביטחון</b><div class="muted tiny" style="margin:6px 0 0">סכום שנשמר בצד ולא נחשב כהוצאה</div></div><button class="secondary" onclick="editSafetyBuffer()">הגדר מרווח</button></div><div id="safetyBufferStatus" class="tiny" style="margin-top:8px"></div></div>
+ <div class="card"><div class="row between"><div><b>הוצאות צפויות / מחויבויות</b><div class="muted tiny" style="margin-top:4px">הוצאות שטרם הופיעו ב-Spendee</div></div><button class="secondary" onclick="addExpectedExpense()">+ הוסף הוצאה צפויה</button></div><div id="expectedList" style="margin-top:10px"></div></div>
+
+
 <div class="card" id="rc47HistoryLearningCard">
   <div class="row between" style="gap:12px;align-items:flex-start">
     <div>
       <b>🧠 למידה מההיסטוריה</b>
-      <div class="muted tiny" style="margin-top:4px">המערכת בוחנת את 6 החודשים האחרונים ומזהה הוצאות חוזרות שאינן כבר מוגדרות כמחויבויות קבועות.</div>
+      <div class="muted tiny" style="margin-top:4px">זיהוי הוצאות חוזרות מ-6 החודשים האחרונים</div>
     </div>
     <button class="secondary" onclick="rc47AcceptSafeSuggestions()">הוסף המלצות בטוחות</button>
   </div>
   <div id="rc47LearningSummary" class="muted tiny" style="margin-top:10px"></div>
   <div id="rc47LearningList" style="margin-top:10px"></div>
 </div>
-<div class="card"><b>גיבוי ושחזור</b><div class="muted tiny" style="margin:6px 0 10px">השחזור תומך גם בגיבויים מגרסאות V3 קודמות.</div><div class="row"><button class="secondary" onclick="exportBackup()">גיבוי המערכת</button><label class="filebtn secondary">שחזור גיבוי<input id="backupFile" type="file" accept=".json,application/json"></label></div></div>
- <div class="card"><div class="row between"><b>כללי שיוך לחודש תקציבי</b></div><div class="tiny muted" style="margin-top:6px">המערכת משתמשת בתאריך שמופיע ב-Spendee כחודש התקציבי. אין יותר העברה אוטומטית של הכנסות או הוצאות לחודש קודם.</div><div id="pendingInfo" class="tiny" style="margin-top:8px"></div></div>
-<div class="muted tiny" style="text-align:center;margin:18px">הנתונים נשמרים מקומית בדפדפן, וכאשר הסנכרון מחובר גם בענן Supabase. קובץ ה־CSV עצמו אינו נשלח לשרת; רק נתוני התקציב שנקלטו נשמרים בענן.</div>
+<div class="card"><b>גיבוי ושחזור</b><div class="row" style="margin-top:10px"><button class="secondary" onclick="exportBackup()">גיבוי המערכת</button><label class="filebtn secondary">שחזור גיבוי<input id="backupFile" type="file" accept=".json,application/json"></label></div></div>
+ <div class="card"><div class="row between"><b>כללי שיוך לחודש תקציבי</b></div><div class="tiny muted" style="margin-top:6px">לפי התאריך שמופיע ב-Spendee</div><div id="pendingInfo" class="tiny" style="margin-top:8px"></div></div>
+<div class="muted tiny" style="text-align:center;margin:18px">הנתונים נשמרים מקומית, וכשהסנכרון מחובר — גם בענן Supabase</div>
 
  <div class="card" style="margin-top:12px">
-  <b>🤖 מאמן פיננסי מתקדם (AI)</b>
-  <div class="muted tiny" style="margin:6px 0 10px">הכנה לגרסה עתידית עם מודל שפה. כרגע המאמן עובד עם כללים חכמים מקומיים. אם תזין מפתח API הוא יישמר להמשך.</div>
+  <b>🤖 מפתח AI</b>
+  <div class="muted tiny" style="margin:6px 0 10px">לזיהוי אוטומטי של מסמכי קרנות (קרנות וחיסכון פנסיוני)</div>
   <div class="row" style="gap:8px;flex-wrap:wrap">
    <input id="coachApiKey" type="password" placeholder="מפתח API (אופציונלי)" style="flex:1;min-width:180px" autocomplete="off">
    <select id="coachApiProvider" style="min-width:140px">
@@ -3228,86 +3307,14 @@ completion is excluded from all analytical totals, preventing double-counting.
 </div>
 
 
-<div id="actionsPage" class="page">
-  <div class="page-shell">
-    <h2 style="margin:8px 0 4px;font-size:22px;font-weight:900">פעולות</h2>
-    <div class="muted" style="margin-bottom:12px;font-size:13px">הזנה, ייבוא וטיפול במשימות פתוחות</div>
-    <div class="action-grid">
-      <div class="action-tile" onclick="showPage('settings');setTimeout(function(){document.getElementById('csvFile')?.scrollIntoView({behavior:'smooth'});},100)">
-        <div class="ic">📥</div>
-        <div><b>ייבוא Spendee</b><span>עדכון הוצאות והכנסות מקובץ CSV</span></div>
-      </div>
-      <div class="action-tile" onclick="showPage('settings');setTimeout(function(){document.getElementById('creditAuditCard')?.scrollIntoView({behavior:'smooth'});},100)">
-        <div class="ic">💳</div>
-        <div><b>התאמת אשראי</b><span>בקרה מול Spendee וסגירת פערי סכום</span></div>
-      </div>
-      <div class="action-tile" onclick="showPage('budget');setTimeout(function(){openExpectedExpensesBreakdown();},100)">
-        <div class="ic">🗓️</div>
-        <div><b>הוצאות צפויות</b><span>סימון שולם / הוספת תשלום ידוע</span></div>
-      </div>
-      <div class="action-tile" onclick="showPage('budget');setTimeout(function(){openTransactionsBreakdown();},100)">
-        <div class="ic">📋</div>
-        <div><b>כל התנועות</b><span>חיפוש, סינון ועריכה</span></div>
-      </div>
-      <div class="action-tile" onclick="showPage('budget');setTimeout(function(){openFinanceBreakdown('expenses');},100)">
-        <div class="ic">📂</div>
-        <div><b>פירוט הוצאות לפי קטגוריה</b><span>איפה יצא הכסף החודש</span></div>
-      </div>
-      <div class="action-tile" onclick="showPage('settings');setTimeout(function(){document.querySelector('[id*=kibbutz], #kibbutzFile, label.filebtn')?.scrollIntoView({behavior:'smooth'});},120)">
-        <div class="ic">🏘️</div>
-        <div><b>ייבוא קיבוץ</b><span>הוספת הוצאות קיבוץ בלי למחוק Spendee</span></div>
-      </div>
-      <div class="action-tile" onclick="exportFullExcelReport()">
-        <div class="ic">📊</div>
-        <div><b>ייצוא דוח Excel מלא</b><span>עו"ש, עבר וניתוח, ביטוחים, קרנות ועוד</span></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="morePage" class="page">
-  <div class="page-shell">
-    <h2 style="margin:8px 0 4px;font-size:22px;font-weight:900">עוד</h2>
-    <div class="muted" style="margin-bottom:12px;font-size:13px">ביטוחים, קרנות והגדרות</div>
-    <div class="more-list">
-      <button type="button" onclick="showPage('forecast')"><span>🎯 תחזית מפורטת</span><small>לחיצה</small></button>
-      <button type="button" onclick="showPage('insurance')"><span>🛡️ ביטוחים</span><small>לחיצה</small></button>
-      <button type="button" onclick="showPage('funds')"><span>🏦 קרנות וחיסכון פנסיוני</span><small>לחיצה</small></button>
-      <button type="button" onclick="showPage('settings')"><span>⚙️ הגדרות וסנכרון</span><small>לחיצה</small></button>
-    </div>
-    <div id="moreAutoToolsMount"></div>
-  </div>
-</div>
-
-<div id="coachPage" class="page">
-  <div class="coach-head">
-    <h2>🤖 המאמן הפיננסי</h2>
-    <div class="sub">ניתוח חכם של החודש שלך: חריגות, קצב הוצאות, צפויות, תחזית וחיסכון — עם פעולות מומלצות לשבוע.</div>
-  </div>
-  <div id="coachSummary" class="coach-summary">
-    <div class="label">מצב כללי החודש</div>
-    <div class="score" id="coachScore">—</div>
-    <div class="hint" id="coachScoreHint">טוען ניתוח…</div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px">
-    <button type="button" id="coachAskAiBtn" onclick="askCoachAI()" style="flex:1;min-height:46px;border-radius:14px;font-weight:850">✨ שאל את ה-AI לייעוץ אישי</button>
-    <button type="button" class="secondary" onclick="renderCoachPage()" style="min-height:46px;border-radius:14px;font-weight:850">רענן כללים</button>
-  </div>
-  <div id="coachAiBox" class="coach-tip sev-info" style="display:none;margin-bottom:12px">
-    <div class="tip-top">
-      <span class="tip-icon">✨</span>
-      <div class="tip-body">
-        <b id="coachAiTitle">ייעוץ AI</b>
-        <small id="coachAiStatus" style="display:block;margin-top:4px"></small>
-        <div id="coachAiAnswer" style="margin-top:10px;font-size:14px;line-height:1.65;color:#24324a;white-space:pre-wrap"></div>
-      </div>
-    </div>
-  </div>
-  <div id="coachList" class="coach-list"></div>
-  <div class="coach-api-box">
-    <b>מפתח API</b>
-    <div class="muted">כדי להפעיל ייעוץ AI אמיתי: הגדרות → כרטיס «מאמן פיננסי מתקדם» → הזן מפתח → שמור. תמיכה ב-Google Gemini, xAI (Grok) ו-OpenAI.</div>
-  </div>
+<!-- coach page removed; hidden placeholders kept so older script hooks that still
+     reference these ids (guarded with optional-chaining / null checks) stay no-ops -->
+<div id="coachPage" class="page" hidden>
+  <div class="score" id="coachScore"></div>
+  <div class="hint" id="coachScoreHint"></div>
+  <div id="coachList"></div>
+  <div id="coachAiBox" style="display:none"><div id="coachAiAnswer"></div><small id="coachAiStatus"></small></div>
+  <button id="coachAskAiBtn" type="button" hidden></button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
@@ -4422,7 +4429,7 @@ async function onFundDocSelected(event){
   ensureV4State();
   const cfg=typeof window.providerConfig==="function"?window.providerConfig():null;
   if(!cfg||!cfg.key){
-    fundImportSetStatus('צריך קודם להגדיר מפתח API בהגדרות → "מאמן פיננסי מתקדם".',true);
+    fundImportSetStatus('צריך קודם להגדיר מפתח API בהגדרות → "מפתח AI".',true);
     return;
   }
   if(file.size>15*1024*1024){
@@ -4550,47 +4557,25 @@ function showPage(name){
  $("insurancePage")?.classList.toggle("active",name==="insurance");
  $("fundsPage")?.classList.toggle("active",name==="funds");
  $("settingsPage")?.classList.toggle("active",name==="settings");
- $("coachPage")?.classList.toggle("active",name==="coach");
- $("actionsPage")?.classList.toggle("active",name==="actions");
- $("morePage")?.classList.toggle("active",name==="more");
 
- if(name==="settings"){setTimeout(rc47RenderHistoryLearning,0);setTimeout(renderCreditAudit,0);setTimeout(loadCoachApiSettings,0);}
- if(name==="more"){ try{ if(typeof mountAutoToolsOnMore==="function") mountAutoToolsOnMore(); }catch(e){} }
+ if(name==="settings"){setTimeout(rc47RenderHistoryLearning,0);setTimeout(renderCreditAudit,0);}
 
  $("budgetTab")?.classList.toggle("active",name==="budget");
  $("annualTab")?.classList.toggle("active",name==="annual");
  $("settingsTab")?.classList.toggle("active",name==="settings");
 
  $("modernBudgetTab")?.classList.toggle("active",name==="budget");
- $("modernActionsTab")?.classList.toggle("active",name==="actions");
  $("modernCoachTab")?.classList.toggle("active",name==="coach");
- $("modernMoreTab")?.classList.toggle("active",name==="more");
+ $("modernMoreTab")?.classList.toggle("active",name==="settings");
  // keep legacy tab highlights for nested pages
  $("modernForecastTab")?.classList.toggle("active",name==="forecast");
- $("modernAnnualTab")?.classList.toggle("active",name==="annual");
+ $("modernAnnualTab")?.classList.toggle("active",name==="annual"||name==="insurance"||name==="funds");
  $("modernInsuranceTab")?.classList.toggle("active",name==="insurance");
  $("modernSettingsTab")?.classList.toggle("active",name==="settings");
 
  if(name==="annual") renderAnnual();
  if(name==="insurance"){insuranceYearOptions();renderInsurancePage();}
  if(name==="funds"){ try{ renderFundsPage(); }catch(e){ console.error(e); } }
- if(name==="coach"){
-   try{
-     if(typeof renderCoachPage==="function") renderCoachPage();
-     else {
-       const s=document.getElementById("coachScore");
-       const h=document.getElementById("coachScoreHint");
-       const l=document.getElementById("coachList");
-       if(s) s.textContent="שגיאה";
-       if(h) h.textContent="renderCoachPage לא נטען — רענן את הדף";
-       if(l) l.innerHTML='<div class="coach-empty">רענן את הדף או הורד מחדש את הקובץ</div>';
-     }
-   }catch(e){
-     console.error(e);
-     const h=document.getElementById("coachScoreHint");
-     if(h) h.textContent="שגיאה: "+(e.message||e);
-   }
- }
  if(name==="forecast"){
    if(typeof window.mountForecast==="function") window.mountForecast();
    const box=$("rc50ForecastBreakdown");
@@ -4943,6 +4928,21 @@ function ingestCSV(text){
  const lo=dates[0],hi=dates[dates.length-1];
  const touchedMonths=new Set(out.map(x=>x.date.slice(0,7)));
  const monthlySummary=isMonthlySummaryImport(out);
+
+ // Auto-register any new expense category the import brings in, instead of leaving it
+ // invisible with "ללא מסגרת מוגדרת" until it's added by hand. Budget starts at 0 (no
+ // cap set), so it simply appears in Settings for Ilan to fill in if he wants one.
+ let newCatsAdded=[];
+ out.forEach(x=>{
+   if((x.type||"").toLowerCase()!=="expense") return;
+   const c=x.category;
+   const nc=norm(c);
+   if(!c || nc==="תכנית חיסכון" || nc==="חיסכון") return;
+   if(state.settings.budgets[c]===undefined){
+     state.settings.budgets[c]=0;
+     newCatsAdded.push(c);
+   }
+ });
  const before=state.spendee.length;
  let removed=0;
 
@@ -4970,9 +4970,9 @@ function ingestCSV(text){
  let skipped=0;
  out=unique.filter(x=>{const k=txKey(x);if(existingKeys.has(k)){skipped++;return false}existingKeys.add(k);return true});
  state.spendee=state.spendee.concat(out);
- state.lastImport={when:new Date().toISOString(),lo,hi,count:out.length,removed,skipped,mode:monthlySummary?"monthly-replace":"range-replace"};
+ state.lastImport={when:new Date().toISOString(),lo,hi,count:out.length,removed,skipped,mode:monthlySummary?"monthly-replace":"range-replace",newCategories:newCatsAdded};
  save();buildMonths();render();
- if($("importStatus")) $("importStatus").textContent=`ייבוא הושלם: ${out.length} תנועות נוספו, ${removed} רשומות ישנות הוחלפו${skipped?`, ${skipped} כפילויות דולגו`:""}.`;
+ if($("importStatus")) $("importStatus").textContent=`ייבוא הושלם: ${out.length} תנועות נוספו, ${removed} רשומות ישנות הוחלפו${skipped?`, ${skipped} כפילויות דולגו`:""}${newCatsAdded.length?`, ${newCatsAdded.length} קטגוריות חדשות נוספו אוטומטית (${newCatsAdded.join(", ")})`:""}.`;
 }
 
 function updateUndoSpendeeButton(){
@@ -6731,6 +6731,8 @@ function render(){
  const v4=v4Analysis(m,tx,bud,income,spendForBudget,savings,expected,days,isCur);
  renderExceptionDashboard();
  updateSafetyBufferStatus();
+ renderBudgetCategoryList();
+ if(typeof window.updateHomeMonthLabel==="function") window.updateHomeMonthLabel();
 
  // Smart forecast:
  // 1) Fixed categories are never multiplied by elapsed time. If not fully paid yet, reserve up to their monthly budget.
@@ -6875,6 +6877,23 @@ function renderAnnual(){
  $("annualMonthsCount").textContent=months?`${months} חודשים עם דיווחים`:"";
  $("annualThrough").textContent=latestTx?`הנתונים כוללים דיווחים עד ${new Intl.DateTimeFormat("he-IL").format(new Date(latestTx.date))}`:"אין דיווחים בשנה זו";
 
+ // Top categories for the year, shown by default without needing to pick one in "קטגוריה".
+ const annualByCat={};
+ allTx().filter(x=>(x.date||"").startsWith(year+"-") && (x.type||"").toLowerCase()==="expense").forEach(x=>{
+   const c=typeof mapCat==="function"?mapCat(x.category):(x.category||"ללא קטגוריה");
+   const nc=typeof norm==="function"?norm(c):c;
+   if(nc==="תכנית חיסכון"||nc==="חיסכון") return;
+   annualByCat[c]=(annualByCat[c]||0)+expenseAmount(x);
+ });
+ const topCats=Object.entries(annualByCat).sort((a,b)=>b[1]-a[1]).slice(0,5);
+ const topCatsMax=Math.max(1,...topCats.map(x=>x[1]));
+ if($("annualTopCats")) $("annualTopCats").innerHTML=topCats.length?topCats.map(([c,v])=>`
+   <div class="history-cat-row">
+     <div class="category-edit-head"><div class="category-edit-title-wrap"><b>${c}</b></div></div>
+     <div class="history-cat-bar"><i style="width:${Math.max(3,v/topCatsMax*100)}%"></i></div>
+     <b>${fmt(v)}</b>
+   </div>`).join(""):`<div class="history-empty">אין הוצאות בשנה זו</div>`;
+
  const max=Math.max(1,...rows.flatMap(r=>[r.income,r.expenses]));
  $("annualBarChart").innerHTML=`
   <div class="year-bars">${rows.map(r=>{
@@ -6945,15 +6964,74 @@ function editCategoryBudget(cat){
   render();
 }
 
-function editSettings(){
- let v=prompt("יעד הכנסה חודשי",state.settings.incomeTarget);
- if(v!==null&&!isNaN(+v))state.settings.incomeTarget=+v;
- v=prompt("יעד חיסכון חודשי",state.settings.savingTarget);
- if(v!==null&&!isNaN(+v))state.settings.savingTarget=+v;
- for(const k of Object.keys(state.settings.budgets)){
-   v=prompt("מסגרת: "+k,state.settings.budgets[k]);
-   if(v!==null&&!isNaN(+v))state.settings.budgets[k]=+v;
- }
+function saveMonthlyGoals(){
+ const inc=Number($("goalIncome").value), sav=Number($("goalSaving").value);
+ if(Number.isFinite(inc)) state.settings.incomeTarget=inc;
+ if(Number.isFinite(sav)) state.settings.savingTarget=sav;
+ save();render();
+}
+function budgetCatIcon(name){
+ const n=norm(name);
+ if(/קיבוץ/.test(n)) return "🏘️";
+ if(/שכירות|שכר דירה|דיור/.test(n)) return "🏠";
+ if(/מזון וטואלטיקה|מזונות|קניות לבית/.test(n)) return "🛒";
+ if(/אוכל בחוץ/.test(n)) return "🍴";
+ if(/דלק|אחזקת רכב|רישוי וביטוח רכב|תחבורה/.test(n)) return "🚗";
+ if(/ביטוח|קופת חולים/.test(n)) return "🛡️";
+ if(/חינוך|מסגרות חינוך/.test(n)) return "🎓";
+ if(/תרופות ורופאים|טיפול פסיכולוגי/.test(n)) return "❤️";
+ if(/טלפון|מדיה/.test(n)) return "📱";
+ if(/בילויים|חוגים/.test(n)) return "🎭";
+ if(/ביגוד/.test(n)) return "👕";
+ if(/אירועים ומתנות/.test(n)) return "🎁";
+ if(/סיגריות|אלכוהול/.test(n)) return "🚬";
+ if(/תמי 4/.test(n)) return "💧";
+ if(/תכנית חיסכון|חיסכון/.test(n)) return "💰";
+ return "🏷️";
+}
+// Deterministic pastel background for a category's icon chip, so each category keeps
+// the same color across sessions without storing one explicitly.
+function categoryChipColor(name){
+ const palette=["#fde7e7","#fef3c7","#dcfce7","#dbeafe","#ede9fe","#fae8ff","#e0f2fe","#fce7f3","#e7e5e4"];
+ let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0;
+ return palette[h%palette.length];
+}
+function renderBudgetCategoryList(){
+ const host=$("budgetCategoryList");
+ if(!host) return;
+ if($("goalIncome") && document.activeElement!==$("goalIncome")) $("goalIncome").value=state.settings.incomeTarget||0;
+ if($("goalSaving") && document.activeElement!==$("goalSaving")) $("goalSaving").value=state.settings.savingTarget||0;
+ const cats=Object.keys(state.settings.budgets).sort((a,b)=>a.localeCompare(b,"he"));
+ host.innerHTML=cats.map(c=>{
+   const ic=budgetCatIcon(c);
+   const sk=encodeURIComponent(c);
+   return `<div class="budget-cat-row">
+     <span class="budget-cat-icon" style="background:${categoryChipColor(c)}">${ic}</span>
+     <span class="budget-cat-name">${escapeHtml(c)}</span>
+     <input type="number" inputmode="decimal" class="budget-cat-amount" value="${state.settings.budgets[c]}" onchange="updateBudgetCategoryAmount('${sk}',this.value)">
+     <button type="button" class="budget-cat-del" title="מחיקת קטגוריה" onclick="deleteBudgetCategory('${sk}')">🗑️</button>
+   </div>`;
+ }).join("") || `<div class="history-empty">אין קטגוריות מוגדרות</div>`;
+}
+function updateBudgetCategoryAmount(encCat,val){
+ const c=decodeURIComponent(encCat), n=Number(val);
+ if(!Number.isFinite(n)) return;
+ state.settings.budgets[c]=n;
+ save();render();
+}
+function deleteBudgetCategory(encCat){
+ const c=decodeURIComponent(encCat);
+ if(!confirm(`למחוק את המסגרת "${c}"? תנועות קיימות בקטגוריה זו לא יימחקו, רק המסגרת התקציבית.`)) return;
+ delete state.settings.budgets[c];
+ save();render();
+}
+function addBudgetCategory(){
+ const name=prompt("שם הקטגוריה החדשה");
+ if(!name) return;
+ const c=norm(name);
+ if(state.settings.budgets[c]!==undefined){ alert("הקטגוריה כבר קיימת"); return; }
+ const amt=prompt("מסגרת חודשית (אפשר 0 ולהשאיר ללא הגבלה)","0");
+ state.settings.budgets[c]=Number(amt)||0;
  save();render();
 }
 function exportBackup(){let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="budget-v4-backup.json";a.click();URL.revokeObjectURL(a.href)}
@@ -7309,6 +7387,28 @@ if ("serviceWorker" in navigator) {
   const fullMonthLabel=m=>new Intl.DateTimeFormat("he-IL",{month:"long",year:"numeric"})
       .format(new Date(m+"-01T12:00:00"));
 
+  // Visible prev/next month navigation on the home page, driven by the existing
+  // (otherwise hidden) #month select that render() already filters by.
+  function updateHomeMonthLabel(){
+    const sel=$id("month"), label=$id("homeMonthLabel");
+    if(!sel||!label) return;
+    label.textContent=sel.value?fullMonthLabel(sel.value):"—";
+    const eyebrow=$id("homeHeroEyebrow");
+    if(eyebrow) eyebrow.textContent=sel.value===localMonthKey()?"החודש הנוכחי":"חודש קודם";
+  }
+  window.homeMonthShift=function(delta){
+    const sel=$id("month");
+    if(!sel||!sel.options.length) return;
+    // Options are sorted newest-first, so moving to a later month means a lower index.
+    const idx=sel.selectedIndex;
+    const next=idx-delta;
+    if(next<0||next>=sel.options.length) return;
+    sel.selectedIndex=next;
+    if(typeof render==="function") render();
+    updateHomeMonthLabel();
+  };
+  window.updateHomeMonthLabel=updateHomeMonthLabel;
+
   function forceCurrentMonth(){
     const sel=$id("month");
     if(!sel) return;
@@ -7321,6 +7421,7 @@ if ("serviceWorker" in navigator) {
     }
     const lab=$id("currentMonthLabel");
     if(lab) lab.textContent=fullMonthLabel(cur);
+    updateHomeMonthLabel();
   }
 
   function setupHistory(){
@@ -7331,6 +7432,11 @@ if ("serviceWorker" in navigator) {
     controls.id="historyModeControls";
     controls.className="card";
     controls.innerHTML=`
+      <div class="history-subnav" role="tablist" aria-label="עבר וניתוח">
+        <button type="button" class="active" onclick="showPage('annual')">📊 הוצאות והכנסות</button>
+        <button type="button" onclick="showPage('insurance')">🛡️ ביטוחים</button>
+        <button type="button" onclick="showPage('funds')">🏦 קרנות</button>
+      </div>
       <div class="row between">
         <div>
           <b style="font-size:21px">עבר וניתוח</b>
@@ -7739,47 +7845,18 @@ if ("serviceWorker" in navigator) {
 
     const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
     const maxCat=Math.max(1,...cats.map(x=>x[1]));
-    const rc34Insights=rc34BuildInsights(key,byCat);
 
     const rows=[...tx].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
     view.innerHTML=`
       <div class="history-month-grid">
-        <div class="history-kpi rc36-clickable" data-rc36-type="income" role="button" tabindex="0" title="לחץ להצגת חלוקת ההכנסות לפי קטגוריה"><small>הכנסות</small><b>${fmtLocal(income)}</b></div>
-        <div class="history-kpi rc36-clickable" data-rc36-type="expense" role="button" tabindex="0" title="לחץ להצגת חלוקת ההוצאות לפי קטגוריה"><small>הוצאות</small><b>${fmtLocal(expenses)}</b></div>
-        <div class="history-kpi"><small>חיסכון</small><b>${fmtLocal(savings)}</b></div>
-        <div class="history-kpi"><small>מאזן</small><b class="${balance>=0?"history-balance-positive":"history-balance-negative"}">${fmtLocal(balance)}</b></div>
+        <div class="history-kpi rc36-clickable" data-rc36-type="income" role="button" tabindex="0" title="לחץ להצגת חלוקת ההכנסות לפי קטגוריה"><small>הכנסות</small><b>${fmtLocal(income)}</b><em class="history-kpi-sub">התקבלו החודש</em></div>
+        <div class="history-kpi rc36-clickable" data-rc36-type="expense" role="button" tabindex="0" title="לחץ להצגת חלוקת ההוצאות לפי קטגוריה"><small>הוצאות</small><b>${fmtLocal(expenses)}</b><em class="history-kpi-sub">יצאו החודש</em></div>
+        <div class="history-kpi"><small>חיסכון</small><b>${fmtLocal(savings)}</b><em class="history-kpi-sub">הופרש החודש</em></div>
+        <div class="history-kpi"><small>מאזן</small><b class="${balance>=0?"history-balance-positive":"history-balance-negative"}">${fmtLocal(balance)}</b><em class="history-kpi-sub">הכנסות פחות הוצאות</em></div>
       </div>
-      ${kibbutzEstimateTotal>0?`<div class="muted tiny" style="margin:4px 2px 0">כולל הערכה של ${fmtLocal(kibbutzEstimateTotal)} להוצאות קיבוץ שטרם דווחו החודש (${kibbutzEstimatedCats.length} קטגוריות) — מבוסס על ממוצע חודשים קודמים, ותוחלף אוטומטית ברגע שתטען את הקובץ האמיתי.</div>`:""}
+      ${kibbutzEstimateTotal>0?`<div class="muted tiny" style="margin:4px 2px 0">כולל הערכה של ${fmtLocal(kibbutzEstimateTotal)} להוצאות קיבוץ שטרם דווחו</div>`:""}
       <div id="rc36DonutPanel" class="rc36-donut-panel"></div>
-      <div class="history-insights">
-        <div class="history-insights-head">
-          <div>
-            <div class="history-insights-title">💡 תובנות לחודש</div>
-            <div class="history-insights-sub">השוואה אוטומטית לממוצע של 3 החודשים הקודמים</div>
-          </div>
-        </div>
-        <div class="history-insights-list">${rc34Insights.html}</div>
-        <div class="history-insights-summary">${rc34Insights.summary}</div>
-      </div>
-      <div class="card">
-        <div class="history-section-title">הוצאות לפי קטגוריה</div>
-        ${cats.length?cats.map(([c,v])=>`
-          <div class="history-cat-row">
-            <div class="category-edit-head"><div class="category-edit-title-wrap"><b>${c}</b>${kibbutzEstimatedCats.includes(c)?'<span class="rc35-est-badge">משוער</span>':""}</div><button class="category-edit-button" type="button" onclick="event.stopPropagation();editCategoryBudgetEncoded('${encodeURIComponent(c)}')">✏️ עריכה</button></div>
-            <div class="history-cat-bar"><i style="width:${Math.max(3,v/maxCat*100)}%"></i></div>
-            <b>${fmtLocal(v)}</b>
-          </div>`).join(""):`<div class="history-empty">אין הוצאות בחודש זה</div>`}
-      </div>
-      <div class="card scroll">
-        <div class="row between"><b class="history-section-title" style="margin:0">תנועות החודש</b><span class="muted">${rows.length} תנועות</span></div>
-        <table id="historyMonthTransactions">
-          <thead><tr><th>תאריך</th><th>סוג</th><th>קטגוריה</th><th>הערה</th><th>סכום</th></tr></thead>
-          <tbody>${rows.length?rows.map(x=>{
-            const exp=(x.type||"").toLowerCase()==="expense";
-            return `<tr><td>${(x.date||"").slice(0,10)}</td><td>${exp?"הוצאה":"הכנסה"}</td><td>${x.category||""}</td><td>${x.note||""}</td><td>${fmtLocal(Math.abs(Number(x.amount||0)))}</td></tr>`;
-          }).join(""):`<tr><td colspan="5">אין תנועות בחודש זה</td></tr>`}</tbody>
-        </table>
-      </div>`;
+      <div class="muted tiny" style="margin:8px 2px 0">לפירוט הוצאות לפי קטגוריה ותנועות החודש — עברו ללשונית הבית ובחרו את החודש הרצוי.</div>`;
 
     view.querySelectorAll(".history-kpi.rc36-clickable").forEach(card=>{
       const open=()=>rc36OpenDonut(card.dataset.rc36Type,key);
@@ -7788,6 +7865,24 @@ if ("serviceWorker" in navigator) {
         if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}
       });
     });
+
+    const searchInput=$id("historyMonthSearch");
+    if(searchInput){
+      searchInput.addEventListener("input",()=>{
+        const q=searchInput.value.trim().toLowerCase();
+        const trs=view.querySelectorAll("#historyMonthTransactions tbody tr[data-search]");
+        let shown=0;
+        trs.forEach(tr=>{
+          const match=!q || tr.dataset.search.includes(q);
+          tr.style.display=match?"":"none";
+          if(match) shown++;
+        });
+        const emptyEl=$id("historyMonthSearchEmpty");
+        if(emptyEl) emptyEl.style.display=(trs.length && shown===0)?"":"none";
+        const countEl=$id("historyMonthTxCount");
+        if(countEl) countEl.textContent=q ? `${shown} מתוך ${rows.length} תנועות` : `${rows.length} תנועות`;
+      });
+    }
   }
 
   const originalShowPage=window.showPage;
@@ -8595,9 +8690,7 @@ if ("serviceWorker" in navigator) {
 <nav class="modern-bottom-nav" aria-label="ניווט ראשי">
   <button id="modernBudgetTab" class="active" onclick="showPage('budget')"><span class="nav-icon">🏠</span><span>בית</span></button>
   <button id="modernAnnualTab" onclick="showPage('annual')"><span class="nav-icon">📊</span><span>עבר וניתוח</span></button>
-  <button id="modernActionsTab" onclick="showPage('actions')"><span class="nav-icon">⚡</span><span>פעולות</span></button>
-  <button id="modernCoachTab" onclick="showPage('coach')"><span class="nav-icon">🤖</span><span>מאמן</span></button>
-  <button id="modernMoreTab" onclick="showPage('more')"><span class="nav-icon">☰</span><span>עוד</span></button>
+  <button id="modernMoreTab" onclick="showPage('settings')"><span class="nav-icon">⚙️</span><span>הגדרות</span></button>
 </nav>
 
 
@@ -9737,16 +9830,10 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
   window.pushChangeLog = pushChangeLog;
 
   function renderChangeLog(){
+    // "שינויים אחרונים" card removed from UI per user request; keep logging internally (silent) for any future use.
     const el=$("uxChangeLog");
     if(!el) return;
-    const logs=(state&&state.changeLog)||[];
-    if(!logs.length){ el.hidden=true; el.innerHTML=""; return; }
-    el.hidden=false;
-    el.innerHTML="<b>שינויים אחרונים</b><br>"+logs.slice(0,6).map(x=>{
-      const d=new Date(x.t);
-      const ts=Number.isNaN(d.getTime())?"":d.toLocaleString("he-IL",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-      return `<div>${ts} · ${x.msg}</div>`;
-    }).join("");
+    el.hidden=true; el.innerHTML="";
   }
 
   function computeAttention(monthKey){
@@ -10447,7 +10534,7 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
         subline = "ייבא נתונים או בחר חודש עם תנועות";
       }else if(projected < 0){
         label = "דורש תשומת לב";
-        subline = "התחזית שלילית — כדאי לפתוח את המאמן";
+        subline = "התחזית שלילית — כדאי לבדוק את ההוצאות";
       }else if(projected < 250){
         label = "מרווח דק";
         subline = "אפשר לסיים חיובי אם שומרים על משמעת";
@@ -11707,7 +11794,7 @@ const prevCard=creditAuditCard;creditAuditCard=function(r,idx){let h=prevCard(r,
     if(!cfg.key){
       box.style.display="block";
       if(title) title.textContent="חסר מפתח API";
-      status.textContent="עבור להגדרות → «מאמן פיננסי מתקדם» → בחר Gemini → הזן מפתח → שמור.";
+      status.textContent="עבור להגדרות → «מפתח AI» → בחר Gemini → הזן מפתח → שמור.";
       answer.textContent="";
       showPage("settings");
       setTimeout(()=>$("coachApiKey")?.focus(), 200);
