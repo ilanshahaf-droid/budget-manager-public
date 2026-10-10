@@ -8137,7 +8137,7 @@ if ("serviceWorker" in navigator) {
     const {cat,note,date,amount,source,isIncome,sk,ck}=row;
     return `<div class="rc25-tx-row"${sk?` onclick="openTxEditor('${sk}')" role="button" tabindex="0"`:""}>
       <span class="rc25-tx-icon">${transactionIcon(cat)}</span>
-      <div class="rc25-tx-main"><b>${escapeHtml(note||cat)}</b><small>${escapeHtml(source||cat)}${date?` · ${date.slice(5)}`:""}</small></div>
+      <div class="rc25-tx-main"><b>${escapeHtml(note||cat)}</b><small>${escapeHtml(cat)}${date?` · ${date.slice(8,10)}-${date.slice(5,7)}`:""}</small></div>
       <span class="rc25-tx-amount" style="${isIncome?"color:#0d7a4f":""}">${isIncome?"+":"-"}${amount}</span>
       ${ck?`<button type="button" class="rc25-tx-classify" title="סיווג הוצאה" onclick="event.stopPropagation();classifyTx('${ck}')">⋯</button>`:""}
     </div>`;
