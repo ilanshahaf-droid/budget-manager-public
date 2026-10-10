@@ -15,7 +15,8 @@ h1{margin:0;font-size:24px}.sub{opacity:.9;margin-top:5px}.card{background:var(-
 button,.filebtn,select,input{border-radius:10px;border:1px solid var(--line);padding:10px 12px;font-size:14px}
 button,.filebtn{background:var(--primary);color:white;border:0;font-weight:700;cursor:pointer}.secondary{background:#eef0f8;color:#4b3d78}.danger{background:#fee2e2;color:#991b1b}
 .filebtn input{display:none}.progress{height:9px;background:#edf0f4;border-radius:99px;overflow:hidden;margin:8px 0}.progress i{display:block;height:100%;background:var(--ok)}
-.warn i{background:var(--warn)}.bad i{background:var(--bad)}.cats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.cat{border:1px solid var(--line);border-radius:13px;padding:11px}
+.warn i{background:var(--warn)}.bad i{background:var(--bad)}.cats{display:grid;grid-template-columns:1fr;gap:9px}.cat{border:1px solid var(--line);border-radius:13px;padding:11px}
+.rc48-cat-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:#f1effa;margin-left:8px;font-size:14px;vertical-align:middle}
 .cathead{display:flex;justify-content:space-between;gap:8px;font-weight:700}.meta{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
 .alert{padding:11px;border-radius:12px;font-weight:650}.alert.ok{background:#dcfce7;color:#166534}.alert.warn{background:#fef3c7;color:#854d0e}.alert.bad{background:#fee2e2;color:#991b1b}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:right}th{color:var(--muted)}
@@ -221,7 +222,11 @@ body{color:var(--r25-ink)!important;}
 .app-accordion:nth-of-type(2)>summary{padding:15px 20px!important;}
 .accordion-body.scroll{overflow:visible!important;}
 .rc25-recent-tx{display:grid;gap:0;}
-.rc25-tx-row{display:grid;grid-template-columns:52px 1fr 100px 120px;align-items:center;gap:12px;border-bottom:1px solid #e7ebf1;}
+.rc25-tx-row{display:grid;grid-template-columns:52px 1fr 100px 120px 0px;align-items:center;gap:12px;border-bottom:1px solid #e7ebf1;}
+.rc25-tx-row:has(.rc25-tx-classify){grid-template-columns:52px 1fr 100px 120px 28px;}
+.rc25-tx-row[role="button"]{cursor:pointer}
+.rc25-tx-row[role="button"]:active{background:#f7f7fb}
+.rc25-tx-classify{border:1px solid var(--line);background:#fff;border-radius:8px;width:26px;height:26px;line-height:1;font-weight:900;color:var(--muted);cursor:pointer}
 .rc25-tx-row:last-child{border-bottom:0;}
 .rc25-tx-main b{font-size:16px;}.rc25-tx-main small{display:block;color:#637086;margin-top:2px;}.rc25-tx-date{color:#536177;}.rc25-tx-amount{font-size:20px;font-weight:900;color:#d21f34;text-align:left;}
 .rc25-show-all{display:block;margin:12px auto 0;border:0;background:transparent;color:#315fd5;font-weight:800;font-size:15px;cursor:pointer;}
@@ -241,7 +246,7 @@ body{color:var(--r25-ink)!important;}
 #rc25Footer{text-align:center;color:#647289;font-size:14px;padding:18px 0 4px;}
 
 @media(max-width:900px){#cats{grid-template-columns:repeat(2,1fr)!important;}.forecast-layout{grid-template-columns:1fr!important;}.forecast-panel{order:-1;}}
-@media(max-width:700px){.hero-metrics,.summary-grid{grid-template-columns:repeat(2,1fr)!important;}.rc25-tx-row{grid-template-columns:44px 1fr 80px;}.rc25-tx-date{display:none;}}
+@media(max-width:700px){.hero-metrics,.summary-grid{grid-template-columns:repeat(2,1fr)!important;}.rc25-tx-row{grid-template-columns:44px 1fr 80px 0px;}.rc25-tx-row:has(.rc25-tx-classify){grid-template-columns:44px 1fr 80px 26px;}.rc25-tx-date{display:none;}}
 @media(max-width:520px){#cats,.hero-metrics,.summary-grid{grid-template-columns:1fr!important;}.navtabs button{font-size:16px!important;}}
 
 
@@ -2892,10 +2897,12 @@ completion is excluded from all analytical totals, preventing double-counting.
     <div class="accordion-body scroll">
       <div id="rc25RecentTx" class="rc25-recent-tx"></div>
       <button id="rc25ShowAllTx" type="button" class="rc25-show-all">הצג את כל התנועות</button>
-      <div id="rc25FullTx" class="hidden"><table>
-        <thead><tr><th>תאריך</th><th>חודש</th><th>סוג</th><th>קטגוריה</th><th>הערה</th><th>סכום</th><th>סוג הוצאה</th><th>מקור</th><th>פעולה</th></tr></thead>
-        <tbody id="tbody"></tbody>
-      </table></div>
+      <div id="rc25FullTx" class="hidden">
+        <input type="text" id="rc25FullSearch" class="history-tx-search" placeholder="חיפוש תנועה — קטגוריה, הערה או סכום" autocomplete="off">
+        <div id="rc25FullList" class="rc25-recent-tx"></div>
+        <div class="history-empty" id="rc25FullSearchEmpty" style="display:none">לא נמצאו תנועות תואמות</div>
+        <table class="hidden"><tbody id="tbody"></tbody></table>
+      </div>
     </div>
   </details>
 
@@ -3283,8 +3290,7 @@ completion is excluded from all analytical totals, preventing double-counting.
   <div id="rc47LearningSummary" class="muted tiny" style="margin-top:10px"></div>
   <div id="rc47LearningList" style="margin-top:10px"></div>
 </div>
-<div class="card"><b>גיבוי ושחזור</b><div class="row" style="margin-top:10px"><button class="secondary" onclick="exportBackup()">גיבוי המערכת</button><label class="filebtn secondary">שחזור גיבוי<input id="backupFile" type="file" accept=".json,application/json"></label></div></div>
- <div class="card"><div class="row between"><b>כללי שיוך לחודש תקציבי</b></div><div class="tiny muted" style="margin-top:6px">לפי התאריך שמופיע ב-Spendee</div><div id="pendingInfo" class="tiny" style="margin-top:8px"></div></div>
+<div class="card"><b>גיבוי ושחזור</b><div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="secondary" onclick="exportBackup()">גיבוי המערכת</button><button class="secondary" onclick="shareBackupToDrive()">📤 שתף בדרייב</button><label class="filebtn secondary">שחזור גיבוי<input id="backupFile" type="file" accept=".json,application/json"></label></div></div>
 <div class="muted tiny" style="text-align:center;margin:18px">הנתונים נשמרים מקומית, וכשהסנכרון מחובר — גם בענן Supabase</div>
 
 </div>
@@ -6866,7 +6872,7 @@ function render(){
        <button type="button" class="tx-edit-btn" onclick="event.stopPropagation();openTxEditor('${sk}')">ערוך</button>
      </div>`;
    }).join("");
-   return `<div class="cat rc48-expense-row"><div class="rc48-row-top"><span class="rc48-cat-name">${c}</span><b class="rc48-actual">${fmt(s)}</b></div><div class="rc48-actual-label">הוצאה בפועל${items.length?` · ${items.length} תנועות`:""}</div><div class="category-edit-wrap"><button class="category-edit-button" type="button" onclick="event.stopPropagation();editCategoryBudgetEncoded('${encodeURIComponent(c)}')">✏️ מסגרת</button></div>${b?`<div class="progress ${q>=100?"bad":q>=75?"warn":""}"><i style="width:${Math.min(q,100)}%"></i></div><div class="meta"><span>מסגרת ${fmt(b)}</span><span>${s>b?`חריגה ${fmt(s-b)}`:`נותר ${fmt(remaining)}`}</span></div>`:`<div class="meta"><span>ללא מסגרת מוגדרת</span><span></span></div>`}<div class="rc48-expense-details">${details}</div></div>`;
+   return `<div class="cat rc48-expense-row"><div class="rc48-row-top"><span class="rc48-cat-name"><span class="rc48-cat-icon">${budgetCatIcon(c)}</span>${c}</span><b class="rc48-actual">${fmt(s)}</b></div><div class="rc48-actual-label">הוצאה בפועל${items.length?` · ${items.length} תנועות`:""}</div>${b?`<div class="progress ${q>=100?"bad":q>=75?"warn":""}"><i style="width:${Math.min(q,100)}%"></i></div><div class="meta"><span>מסגרת ${fmt(b)}</span><span>${s>b?`חריגה ${fmt(s-b)}`:`נותר ${fmt(remaining)}`}</span></div>`:`<div class="meta"><span>ללא מסגרת מוגדרת</span><span></span></div>`}<div class="rc48-expense-details">${details}</div></div>`;
  }).join("") : '<div class="muted">אין הוצאות בפועל בחודש זה.</div>';
  const incomeGroups={};
  tx.filter(x=>(x.type||"").toLowerCase()==="income").forEach(x=>{
@@ -7099,6 +7105,24 @@ function addBudgetCategory(){
  save();render();
 }
 function exportBackup(){let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="budget-v4-backup.json";a.click();URL.revokeObjectURL(a.href)}
+async function shareBackupToDrive(){
+  try{
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+    const fname="budget-v4-backup-"+new Date().toISOString().slice(0,10)+".json";
+    const file=new File([blob],fname,{type:"application/json"});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:"גיבוי מנהל התקציב שלי",text:"קובץ גיבוי של מנהל התקציב שלי"});
+      return;
+    }
+  }catch(e){
+    if(e && e.name==="AbortError") return; // user cancelled the share sheet — not an error
+    console.error(e);
+  }
+  // Fallback when Web Share (with files) isn't supported: download, then the user
+  // can upload the file to Drive themselves from their downloads/share sheet.
+  exportBackup();
+  alert("שיתוף ישיר לא נתמך בדפדפן הזה — הקובץ הורד. אפשר להעלות אותו ל-Drive משם.");
+}
 
 // Builds one formatted sheet: bold white-on-purple header row, RTL, frozen header,
 // auto-fit column widths, currency formatting on numeric columns, light row banding.
@@ -8136,6 +8160,53 @@ if ("serviceWorker" in navigator) {
     btn.dataset.ready="1";
   }
 
+  // Full transaction list, redesigned as clean icon rows (like the recent-transactions
+  // preview) instead of the old wide data table — with a search box. The hidden #tbody
+  // table (still written unconditionally elsewhere) stays as the underlying data source;
+  // each row's edit action is recovered from its "ערוך" button's onclick attribute.
+  function renderFullTransactionsList(){
+    const target=document.getElementById("rc25FullList");
+    const tbody=document.getElementById("tbody");
+    if(!target||!tbody)return;
+
+    const rows=[...tbody.querySelectorAll("tr")].filter(r=>r.children.length>=9);
+    target.innerHTML=rows.map(r=>{
+      const c=[...r.children].map(td=>clean(td.innerText));
+      const date=c[0]||"",type=c[2]||"",cat=c[3]||"",note=c[4]||cat,amount=c[5]||"",source=c[7]||"";
+      const isIncome=type==="הכנסה";
+      const actionHtml=r.children[8]?r.children[8].innerHTML:"";
+      const editM=actionHtml.match(/openTxEditor\('([^']+)'\)/);
+      const classifyM=actionHtml.match(/classifyTx\('([^']+)'\)/);
+      const sk=editM?editM[1]:"";
+      const ck=classifyM?classifyM[1]:"";
+      const searchText=[cat,note,amount,date,source].join(" ").toLowerCase();
+      return `<div class="rc25-tx-row"${sk?` onclick="openTxEditor('${sk}')" role="button" tabindex="0"`:""} data-search="${escapeHtml(searchText)}">
+        <span class="rc25-tx-icon">${transactionIcon(cat)}</span>
+        <div class="rc25-tx-main"><b>${escapeHtml(note||cat)}</b><small>${escapeHtml(cat)}${source?` · ${escapeHtml(source)}`:""}</small></div>
+        <span class="rc25-tx-date">${date.slice(5)}</span>
+        <span class="rc25-tx-amount" style="${isIncome?"color:#0d7a4f":""}">${isIncome?"+":"-"}${amount}</span>
+        ${ck?`<button type="button" class="rc25-tx-classify" title="סיווג הוצאה" onclick="event.stopPropagation();classifyTx('${ck}')">⋯</button>`:""}
+      </div>`;
+    }).join("") || '<div class="muted" style="padding:12px">אין תנועות להצגה</div>';
+
+    const search=document.getElementById("rc25FullSearch");
+    if(search && !search.dataset.ready){
+      search.addEventListener("input",()=>{
+        const q=search.value.trim().toLowerCase();
+        const items=target.querySelectorAll(".rc25-tx-row[data-search]");
+        let shown=0;
+        items.forEach(it=>{
+          const match=!q||it.dataset.search.includes(q);
+          it.style.display=match?"":"none";
+          if(match) shown++;
+        });
+        const emptyEl=document.getElementById("rc25FullSearchEmpty");
+        if(emptyEl) emptyEl.style.display=(items.length&&shown===0)?"":"none";
+      });
+      search.dataset.ready="1";
+    }
+  }
+
   function addFooter(){
     if(document.getElementById("rc25Footer"))return;
     const f=document.createElement("div");
@@ -8210,6 +8281,7 @@ if ("serviceWorker" in navigator) {
     decorateAttention();
     decorateCategories();
     renderRecentTransactions();
+    renderFullTransactionsList();
     setupShowAll();
     addFooter();
     addNavIcons();
